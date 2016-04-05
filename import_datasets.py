@@ -1,4 +1,4 @@
-# Can import the functions using `from import_datasets import import_data_nlm` or similar`
+# Can import the functions using `from import_datasets import import_data_nlm` or similar
 
 from os import listdir
 from os.path import isfile, join, basename
@@ -9,10 +9,10 @@ def read_files(filenames):
     docs = [open(x[:-4] + '.txt').read().replace('\n', ' ').replace('\r', ' ') for x in filenames]
     return keys, docs
 
-# Run using `docs = import_datasets(path)` where path = {path to the NLM_500 documents folder}
+# Run using `docs = import_data_nlm(path)` where path = {path to the NLM_500 documents folder}
 # This will give you a dictionary: `docs`
 # The dict has the document ID as the key and a tuple/list of the [keys, doc] as the value
-# For example, train['122025511'] = [ [key1, key2, ...], 'document string' ]
+# For example, docs['122025511'] = [ [key1, key2, ...], 'document string' ]
 def import_data_nlm(datasets_folder):
     all_filenames = [join(datasets_folder, f) for f in listdir(datasets_folder) if isfile(join(datasets_folder, f))]
     filenames = [x for x in all_filenames if x[-4:] == '.key']
@@ -25,7 +25,7 @@ def import_data_nlm(datasets_folder):
 
     return docs
 
-# Run using `train, test = import_datasets(path)` where path = {path to the data_js folder}
+# Run using `train, test = import_data_js(path)` where path = {path to the data_js folder}
 # This will give you two dictionaries: `train` and `test`
 # Each dict has the document ID as the key and a tuple/list of the [keys, doc] as the value
 # For example, train['C-41'] = [ [key1, key2, ...], 'document string' ]
