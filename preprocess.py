@@ -44,7 +44,7 @@ def stem(l):
 
 # input:  a list l of string
 # output: a list of string where the stopwords are removed
-def removeStopwords(l):
+def remove_stopwords(l):
 
     result = []
 
