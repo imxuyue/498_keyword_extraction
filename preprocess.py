@@ -13,50 +13,32 @@ from nltk.corpus import stopwords
 
 stopwords = stopwords.words('english')
 
-def tokenize(l):
-
-    return 0
+def tokenize(doc):
+    # Tokenize something
+    return doc
 
 
 # input: a list of strings representing a doc
 # output: a list of lemmatized strings
-def lemmatize(l):
+def lemmatize(doc):
     lemmatizer = WordNetLemmatizer()
-    result = []
-    for doc in l:
-        tokens = [lemmatizer.lemmatize(token) for token in doc.split()]
-        result.append(' '.join(tokens))
-    return result
-
+    return ' '.join([lemmatizer.lemmatize(token) for token in doc.split()])
 
 # input:  a list l of string
 # output: a list containing the stemmed string in l
-def stem(l):
-    result = []
+def stem(doc):
     stemmer = PorterStemmer()
-
-    for doc in l:
-        # r_tokens is a list of tokens in one review
-        d_singles = [stemmer.stem(token) for token in doc.split()]
-        result.append(' '.join(d_singles))
-
-    return result
+    # r_tokens is a list of tokens in one review
+    return ' '.join([stemmer.stem(token) for token in doc.split()])
 
 # input:  a list l of string
 # output: a list of string where the stopwords are removed
-def remove_stopwords(l):
-
-    result = []
-
+def remove_stopwords(doc):
     '''
     for token in l:
         if token not in stopwords:
             result.append(token)
     '''
-    for doc in l:
-        d_no_sw = [token for token in doc.split() if token not in stopwords]
-        result.append(' '.join(d_no_sw))
-
-    return result
+    return ' '.join([token for token in doc.split() if token not in stopwords])
 
 
