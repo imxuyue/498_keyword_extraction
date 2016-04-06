@@ -7,7 +7,7 @@ from import_datasets import get_dataset
 from preprocess import tokenize, lemmatize, stem, remove_stopwords
 from feature_extraction import extract_features, get_vec_differences
 
-valid_methods = set(['graph_closeness', 'svm'])
+valid_methods = set(['graph_closeness', 'text_rank', 'svm', 'svm_ranking'])
 valid_datasets = set(['nlm', 'js'])
 
 # def tokenize(docs):
