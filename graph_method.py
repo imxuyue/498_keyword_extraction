@@ -6,7 +6,7 @@ Main idea:
     Graph based unsupervised algorithm for keywords extraction
     To build the graph, use terms as vertex and co-occurrence relation between terms as edges
     Use Closeness centrality and TextRank centrality to rank the vertex(terms), respectively
-    Pick the k terms with highest centrality values as the key words
+    Pick the k terms with highest centrality values as the key words 
 
 Work flow:
     Extract sentences from the given text files and split each sentence into tokens
@@ -14,10 +14,10 @@ Work flow:
     Build the co-occurence matrix based on whether or not two terms appear in the same sentence
     Construct the undirected weighted graph using the tokens  as vertex and co-occurence as edge weight
     Calculate the centrality values based on different protocols for each vertex in the graph
-    Extract k tokens with highest centrality value as the key words
+    Extrac k tokens with highest centrality value as the key words
     Calcualte the accuracy and recall using the given keywords and the extracted keywords
 
-To extract keywords, class Closeness or class TextRank can be used
+To extract keywords, class Closeness or class TextRank can be used 
 Class Solution is implemented to speed up the process to get accuracy from a lot of files by using multiprocessing programming
 """
 
@@ -27,25 +27,22 @@ import sys
 import threading
 from multiprocessing import Process, Queue, cpu_count
 from collections import defaultdict, deque
-import PorterStemmer as stem
+import nltk
+from nltk.stem.porter import *
+from nltk.stem import WordNetLemmatizer
+from nltk.corpus import stopwords
 
 
 class Keyword(object):
     def __init__(self, data_dir):
         self.data_dir = data_dir
-        self.stemmer = stem.PorterStemmer()
-        self.stopwords = self.get_stopwords()
-
-    def get_stopwords(self):
-        stopwords = dict()
-        with open('stopwords.txt', 'r') as f:
-            for word in f:
-                stopwords[word.rstrip()] = 0
-        return stopwords
-
+        self.stopwords = self.stopwords('english')
+        self.stemmer = PorterStemmer()
+        self.lemmatizer = WordNetLemmatizer()
+       
     def get_sentence_list(self, filename):
-        with train[filename][1] as f:
-            self.sentence_list = re.sub(r'[^a-z.?!-]', ' ', f)
+        with open(self.data_dir + filename, 'r') as f:
+            self.sentence_list = re.sub(r'[^a-z.?!-]', ' ', f.read())
             self.sentence_list = filter(lambda x: False if len(x) <= 1 else True, re.split(r'[.!?]', self.sentence_list))
             for index, sentence in enumerate(self.sentence_list[:]):
                 self.sentence_list[index] = sentence.split()
@@ -56,7 +53,11 @@ class Keyword(object):
 
     def stem_words(self):
         for index, sentence in enumerate(self.sentence_list[:]):
-            self.sentence_list[index] = [self.stemmer.stem(word, 0, len(word) - 1) for word in sentence]
+            self.sentence_list[index] = [self.stemmer.stem(word) for word in sentence]
+
+    def lemmatize(self):
+        for index, sentence in enumerate(self.sentence_list[:]):
+            self.sentence_list[index] = [self.lemmatizer.lemmatize(word) for word in sentence]
 
     def get_items(self):
         self.items = []
@@ -69,26 +70,28 @@ class Keyword(object):
         self.get_sentence_list(filename)
         self.remove_stopwords()
         self.stem_words()
+        self.lemmatize()
         self.get_items()
 
     def fit(self, filename, ans_file):
-        print filename
         self.get_keywords(filename)
         self.get_ans(ans_file)
-
+        
     def predict(self, filename):
         self.kw = self.get_keywords(filename)
         return self.kw
 
     def get_ans(self, ans_file):  #get the given keywords from the file
-        self.ans = train[ans_file][0]
+        self.ans = []
+        with open(self.data_dir + ans_file, 'r') as f:
+            self.ans = f.read().split()
+            self.ans = set(filter(lambda a: a in self.items, self.ans))
 
     def get_accuracy_recall(self):
         hit = 0.0
         for word in self.kw:
             if word in self.ans:
                 hit += 1
-        print len(self.kw), len(self.ans)
         return hit/len(self.kw), hit/len(self.ans)
 
 
@@ -147,7 +150,7 @@ class Closeness(Keyword, Graph):
         for item in self.items:
             self.get_shortest_path(item)
             score[item] = (n - 1) * 1.0 / sum(self.dist.values())
-        temp = sorted(score.items(), key = lambda items: items[1], reverse = True)
+        temp = sorted(score.items(), key = lambda items: items[1], reverse = True) 
         self.kw = [item[0] for item in temp][:rank]
 
 
@@ -196,7 +199,9 @@ class GraphMethod(object):
         self.data_dir = data_dir
         self.extractors = {'textrank': TextRank(data_dir), 'closeness' : Closeness(data_dir)}
         self.accuracy = {'textrank': 0.0, 'closeness' : 0.0}
+        self.recall = {'textrank': 0.0, 'closeness' : 0.0}
         self.q_accuracy = {'textrank': Queue(), 'closeness': Queue()}
+        self.q_recall = {'textrank': Queue(), 'closeness': Queue()}
         self.filelist = filter(lambda filename: filename.endswith('txt'), os.listdir(self.data_dir))
         self.q_filelist = Queue()
         self.nfiles = len(self.filelist)
@@ -211,8 +216,9 @@ class GraphMethod(object):
             ans_file = filename[:-3]  + 'key'
             extractor.fit(filename, ans_file)
             self.q_accuracy[key].put(extractor.get_accuracy_recall()[0])
+            self.q_recall[key].put(extractor.get_accuracy_recall()[1])
 
-    def get_accuracy(self, key):
+    def get_accuracy_recall(self, key):
         for filename in self.filelist:
             self.q_filelist.put(filename)
         self.accuracy[key] = 0.0
@@ -225,20 +231,29 @@ class GraphMethod(object):
             process.join()
         while not self.q_accuracy[key].empty():
             self.accuracy[key] += self.q_accuracy[key].get()
+            self.recall[key] += self.q_recall[key].get()
         self.accuracy[key] /= self.nfiles
-        return self.accuracy[key]
+        self.recall[key] /= self.nfiles
+        return self.accuracy[key], self.recall[key] 
 
-    def get_accurancy_from_closeness_rank(self):
-        return self.get_accuracy('closeness')
+    def get_results_from_closeness_rank(self):
+        return self.get_accuracy_recall('closeness')
 
-    def get_accuracy_from_text_rank(self):
-        return self.get_accuracy('textrank')
+    def get_results_from_text_rank(self):
+        return self.get_accuracy_recall('textrank')
 
-    def get_accuracy(self):
-        return [self.get_accuracy_from_text_rank(), self.get_accurancy_from_closeness_rank()]
+    def get_all_results(self):
+        return [self.get_results_from_closeness_rank(), self.get_results_from_text_rank()]
+
 
 if __name__ == '__main__':
     data_dir = sys.argv[1]
-    graph_method = GraphMethod(data_dir)
-    print graph_method.get_accuracy_from_text_rank()
-    print graph_method.get_accurancy_from_closeness_rank()
+    solution = GraphMethod(data_dir)
+    print solution.get_results_from_text_rank()
+    print solution.get_results_from_closeness_rank()
+
+
+
+
+
+
