@@ -47,7 +47,7 @@ def get_tfidf_matrix(docs):
     #preprocessor = vectorizer.build_preprocessor()
     #tokenizer = vectorizer.build_tokenizer()
     # construct our own vocab applying some heuristics
-    vocab = set()
+    vocab = []
     print "learning vocabulary"
     for doc in docs:
         first_occurrence = {}
@@ -57,7 +57,7 @@ def get_tfidf_matrix(docs):
             if ngram not in first_occurrence:
                 first_occurrence[ngram] = float(i) / total
             if valid_ngram(ngram):
-                vocab.add(ngram)
+                vocab.append(ngram)
         first_occurrence_all.append(first_occurrence)
     print "size of vocabulary: ", len(vocab)
     print "transforming tfidf matrix"
