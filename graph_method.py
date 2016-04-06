@@ -27,22 +27,19 @@ import sys
 import threading
 from multiprocessing import Process, Queue, cpu_count
 from collections import defaultdict, deque
-import PorterStemmer as stem  
+import nltk
+from nltk.stem.porter import *
+from nltk.stem import WordNetLemmatizer
+from nltk.corpus import stopwords
 
 
 class Keyword(object):
     def __init__(self, data_dir):
         self.data_dir = data_dir
-        self.stemmer = stem.PorterStemmer()
-        self.stopwords = self.get_stopwords()
-
-    def get_stopwords(self):
-        stopwords = dict()
-        with open('stopwords.txt', 'r') as f:
-            for word in f:
-                stopwords[word.rstrip()] = 0
-        return stopwords
-
+        self.stopwords = self.stopwords('english')
+        self.stemmer = PorterStemmer()
+        self.lemmatizer = WordNetLemmatizer()
+       
     def get_sentence_list(self, filename):
         with open(self.data_dir + filename, 'r') as f:
             self.sentence_list = re.sub(r'[^a-z.?!-]', ' ', f.read())
@@ -56,7 +53,11 @@ class Keyword(object):
 
     def stem_words(self):
         for index, sentence in enumerate(self.sentence_list[:]):
-            self.sentence_list[index] = [self.stemmer.stem(word, 0, len(word) - 1) for word in sentence]
+            self.sentence_list[index] = [self.stemmer.stem(word) for word in sentence]
+
+    def lemmatize(self):
+        for index, sentence in enumerate(self.sentence_list[:]):
+            self.sentence_list[index] = [self.lemmatizer.lemmatize(word) for word in sentence]
 
     def get_items(self):
         self.items = []
@@ -69,6 +70,7 @@ class Keyword(object):
         self.get_sentence_list(filename)
         self.remove_stopwords()
         self.stem_words()
+        self.lemmatize()
         self.get_items()
 
     def fit(self, filename, ans_file):
