@@ -76,6 +76,8 @@ def get_first_occurrence(phrase, docid, tokenized_docs):
 
     return score
 
+# Input: parameters to determine features
+# Ouput: feature vector for a single keyphrase of size len(features)
 def get_feature_vector(tfidf, first_occurence, doc_id, phrase_list):
     feature_vec = np.array()
     for f in features:
@@ -86,7 +88,7 @@ def get_feature_vector(tfidf, first_occurence, doc_id, phrase_list):
     return feature_vec
 
 # input: tfidf_matrix, list of all phrases in vocab, set of all true keywords for each doc
-# output: feature matrix: [[feature vector1], [feature vector2], ...], labels:[0, 1, ...]
+# output: feature matrix (np.array): [[feature vector1], [feature vector2], ...], labels:[0, 1, ...]
 def get_feature_matrix(train_docs, tfidf_matrix, phrase_list, true_keys, first_occurrence):
     X = np.empty((0, len(features)))
     y = np.empty(0)
