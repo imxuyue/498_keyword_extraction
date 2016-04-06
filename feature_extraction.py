@@ -55,11 +55,11 @@ def get_tfidf_matrix(docs):
         total = len(tokenized_doc)
         for i, ngram in enumerate(tokenized_doc):
             if ngram not in first_occurrence:
-                first_occurrence[ngram] = i / total
+                first_occurrence[ngram] = float(i) / total
             if valid_ngram(ngram):
                 vocab.add(ngram)
         first_occurrence_all.append(first_occurrence)
-
+    print "size of vocabulary: ", len(vocab)
     print "transforming tfidf matrix"
     vectorizer.vocabulary = list(vocab)
     X = vectorizer.fit_transform(docs)
