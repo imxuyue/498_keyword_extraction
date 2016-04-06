@@ -1,6 +1,7 @@
 # Run as follows: `run.py method_name dataset_dir dataset_name`
 # For example, `run.py nlm graph_closeness`
 import sys
+from svm import train_svm, test_svm
 from graph_method import GraphMethod
 from import_datasets import get_dataset
 from preprocess import tokenize, lemmatize, stem, remove_stopwords
@@ -15,7 +16,7 @@ def tokenize(docs):
     return docs
 
 def main():
-    method_name, data_dir, dataset_name = sys.argv[1:] # Assign last three args to method, dataset
+    method_name, data_dir, dataset_name = sys.argv[1:] # Assign last three args to method, data_dir, dataset
     if (method_name not in valid_methods) or (dataset_name not in valid_datasets):
         print 'Invalid arguments, exiting!'
         sys.exit()
@@ -32,7 +33,7 @@ def main():
         graph_method = GraphMethod(train_docs, train_keys, test_docs, test_keys)
         accuracy = graph_method.get_accuracy_from_text_rank()
     elif method_name == 'svm':
-        X, y = construct_feature_vectors(train_docs, train_keys)
+        X, y = construct_feature_vectors(train_docs, train_keys) # Return matrix and vector
         svm = train_svm(X, y)
         accuracy = test_svm(svm, X, y)
 
