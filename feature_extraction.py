@@ -98,6 +98,20 @@ def get_feature_matrix(tfidf_matrix, phrase_list, true_keys, first_occurrence):
                 y = np.append(y, label())
     return X, y
 
+def get_vec_differences(X_vec, y_vec):
+    X = np.empty((0, np.size(X_vec, axis=1)))
+    y = np.empty(0)
+    for i in range(len(X_vec)):
+        for j in range(i, len(X_vec)):
+            if y_vec[i] == y_vec[j]:
+                continue
+            elif y_vec[i] > y_vec[j]:
+                X = np.append(X, X_vec[i] - X_vec[j], axis=0)
+                y = np.append(y, 1)
+            elif y_vec[i] < y_vec[j]:
+                X = np.append(X, X_vec[i] - X_vec[j], axis=0)
+                y = np.append(y, 0)
+    return X, y
 # def construct_feature_vectors(train_docs):
 #     for i in range(len(train_docs)):
 #         # Dict of {index of gram : list of words in gram}
