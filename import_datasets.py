@@ -1,8 +1,7 @@
 # Can import the functions using `from import_datasets import import_data_nlm` or similar
-
+import sys, random
 from os import listdir
 from os.path import isfile, join, basename
-import sys
 
 def read_files(filenames):
     keys = [open(x).read().splitlines() for x in filenames]
@@ -50,3 +49,17 @@ def import_data_js(datasets_folder):
 
     return train, test
 
+def get_dataset(data_dir, dataset_name):
+    if dataset_name == 'js':
+        train, test = import_data_js(data_dir)
+    if dataset_name == 'nlm':
+        docs = import_data_nlm(data_dir)
+        keys = docs.keys()
+        random_test_indices = random.sample(range(len(docs)), len(docs)/10) # Use 10% as test
+        train, test = {}, {}
+        for k in keys:
+            if i in random_test_indices:
+                test[k] = docs[k]
+            else:
+                train[k] = docs[k]
+    return train, test

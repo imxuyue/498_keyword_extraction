@@ -7,7 +7,6 @@ import operator
 
 stopwords = set(stopwords.words('english'))
 
-
 # Returns unigrams, bigrams, trigrams dicts
 # For example, `trigrams[1] = ['house', 'is', 'nice']`
 def get_grams_indices(tokens):
