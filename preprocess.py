@@ -1,29 +1,25 @@
-'''
-preprocess.py
--------------
-Yue Xu
-Mar 20, 2016
-'''
-
 from __future__ import division
 import nltk
 from nltk.stem.porter import *
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import stopwords
 
-stopwords = stopwords.words('english')
+stopwords = set(stopwords.words('english'))
 
 def tokenize(doc):
     res = doc
 
+    # remove any number
+    res = re.sub(r"(?u)\b\d+\b", "", res)
+
     # remove some punctuations followed by space
-    res = re.sub(r"(\w+)([,.?!:])(\s|$)", r"\1\3", res)
+    res = re.sub(r"(\w+)([,.?!:;])(\s|$)", r"\1\3", res)
 
     # get rid of double quotes
     res = re.sub(r"\"", "", res)
 
     # get rid of parentheses
-    res = re.sub(r'[{}()]', "", res)
+    res = re.sub(r'[\[\]{}()|]', "", res)
 
     l = res.split()
 

@@ -31,7 +31,7 @@ def extract_features(docs, keys):
 # remove ngrams that start and end with stopwords
 def valid_ngram(ngram):
     grams = ngram.split()
-    if grams[0] in stopwords and grams[-1] in stopwords:
+    if grams[0] in stopwords or grams[-1] in stopwords:
         return False
     # other heuristics for filtering go here...
     return True
@@ -42,36 +42,37 @@ def valid_ngram(ngram):
 #         record of first occurrence of each valid ngram in each doc
 def get_tfidf_matrix(docs):
     first_occurrence_all = []
-    vectorizer = TfidfVectorizer(preprocessor=lemmatize, ngram_range=(1, 3), tokenizer=tokenize)
+    vectorizer = TfidfVectorizer(decode_error='ignore', preprocessor=lemmatize, ngram_range=(1, 3), tokenizer=tokenize)
     analyze = vectorizer.build_analyzer()
+    #preprocessor = vectorizer.build_preprocessor()
+    #tokenizer = vectorizer.build_tokenizer()
     # construct our own vocab applying some heuristics
     vocab = set()
+    print "learning vocabulary"
     for doc in docs:
         first_occurrence = {}
         tokenized_doc = analyze(doc)
         total = len(tokenized_doc)
         for i, ngram in enumerate(tokenized_doc):
-            if ngram not in first_occurence:
+            if ngram not in first_occurrence:
                 first_occurrence[ngram] = i / total
             if valid_ngram(ngram):
                 vocab.add(ngram)
         first_occurrence_all.append(first_occurrence)
 
+    print "transforming tfidf matrix"
     vectorizer.vocabulary = list(vocab)
     X = vectorizer.fit_transform(docs)
     # get list of phrases in the order of the feature vector
-    vocab_list = [phrase for phrase, idx in sorted(vectorizer.vocabulary_.items(), key=operator.itermgetter(1))]
+    vocab_list = [phrase for phrase, idx in sorted(vectorizer.vocabulary_.items(), key=operator.itemgetter(1))]
     assert(len(vocab_list) == X.shape[1])
     return X, vocab_list, first_occurrence_all
+    #return preprocessor, tokenizer, analyze
 
-def get_first_occurrence(phrase, docid, tokenized_docs):
-    score = 0 # should be normalized to be in (0, 1)
-
-    return score
 
 # Input: parameters to determine features
 # Ouput: feature vector for a single keyphrase of size len(features)
-def get_feature_vector(tfidf, first_occurence, doc_id, phrase)
+def get_feature_vector(tfidf, first_occurence, doc_id, phrase):
     feature_vec = np.array()
     for f in features:
         if f == 'tfidf':
