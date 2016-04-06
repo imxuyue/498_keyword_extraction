@@ -41,11 +41,11 @@ def main():
     train_docs, test_docs = tokenize(train_docs), tokenize(test_docs)
 
     if method_name == 'graph_closeness':
-        graph_method = GraphMethod(train_docs, train_keys, test_docs, test_keys)
-        accuracy = graph_method.get_accuracy_from_closeness_rank()
+        graph_method = GraphMethod(data_dir + '/' + dataset_name + '/')
+        accuracy, recall = graph_method.get_accuracy_from_closeness_rank()
     elif method_name == 'text_rank':
-        graph_method = GraphMethod(train_docs, train_keys, test_docs, test_keys)
-        accuracy = graph_method.get_accuracy_from_text_rank()
+        graph_method = GraphMethod(data_dir + '/' + dataset_name + '/')
+        accuracy, recall = graph_method.get_accuracy_from_text_rank()
     elif method_name == 'svm':
         # Feature vectors
         train_data = np.array()
