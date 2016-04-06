@@ -14,9 +14,22 @@ from nltk.corpus import stopwords
 stopwords = stopwords.words('english')
 
 def tokenize(doc):
-    # Tokenize something
-    return doc
+    res = doc
 
+    # remove some punctuations followed by space
+    res = re.sub(r"(\w+)([,.?!:])(\s|$)", r"\1\3", res)
+
+    # get rid of double quotes
+    res = re.sub(r"\"", "", res)
+
+    # get rid of parentheses
+    res = re.sub(r'[{}()]', "", res)
+
+    l = res.split()
+
+    l = [token.lower() for token in l]
+
+    return l
 
 # input: a list of strings representing a doc
 # output: a list of lemmatized strings
