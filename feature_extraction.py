@@ -20,23 +20,21 @@ features = ['tfidf', 'docs', 'max_length']
 #         unigrams[i] = tokens[i]
 #     return unigrams, bigrams, trigrams
 #
-# # Takes as input a list of doc tokens (nested list)
-# # For instance, with two docs: [[token_1, token_2], [token_3, token_4, token_5]]
-# def extract_features(doc_tokens):
-#
-#     for tokens in doc_tokens:
-#         unigrams, bigrams, trigrams = get_grams_indices(tokens)
-#         # Need to extract features (length of word, entropy, etc.)
-#     return features # Same length as doc_tokens (number of docs)
 
+# Takes as input a list of doc tokens (nested list)
+# For instance, with two docs: [[token_1, token_2], [token_3, token_4, token_5]]
+def extract_features(docs, keys):
+    tfidf_matrix, phrase_list, first_occurrence_all = get_tfidf_matrix(docs)
+    X, y = get_feature_matrix(tfidf_matrix, phrase_list, keys, first_occurrence_all)
+    return X, y
+
+# remove ngrams that start and end with stopwords
 def valid_ngram(ngram):
     grams = ngram.split()
-    # remove ngram that start and end with stopwords
     if grams[0] in stopwords and grams[-1] in stopwords:
-        return ""
-    # other heuristics for filtering goes here...
-
-    return grams
+        return False
+    # other heuristics for filtering go here...
+    return True
 
 # input: list of docs as strings: ['doc 1 string', 'doc 2 string']
 # output: tfidf matrix, each row a doc, each col a phrase, each cell a tfidf score
@@ -44,7 +42,6 @@ def valid_ngram(ngram):
 #         record of first occurrence of each valid ngram in each doc
 def get_tfidf_matrix(docs):
     first_occurrence_all = []
-
     vectorizer = TfidfVectorizer(preprocessor=lemmatize, ngram_range=(1, 3), tokenizer=tokenize)
     analyze = vectorizer.build_analyzer()
     # construct our own vocab applying some heuristics
@@ -60,15 +57,11 @@ def get_tfidf_matrix(docs):
                 vocab.add(ngram)
         first_occurrence_all.append(first_occurrence)
 
-    vocab = list(vocab)
-
-    vectorizer.vocabulary=vocab
+    vectorizer.vocabulary = list(vocab)
     X = vectorizer.fit_transform(docs)
-
     # get list of phrases in the order of the feature vector
     vocab_list = [phrase for phrase, idx in sorted(vectorizer.vocabulary_.items(), key=operator.itermgetter(1))]
     assert(len(vocab_list) == X.shape[1])
-
     return X, vocab_list, first_occurrence_all
 
 def get_first_occurrence(phrase, docid, tokenized_docs):
@@ -89,7 +82,7 @@ def get_feature_vector(tfidf, first_occurence, doc_id, phrase_list):
 
 # input: tfidf_matrix, list of all phrases in vocab, set of all true keywords for each doc
 # output: feature matrix (np.array): [[feature vector1], [feature vector2], ...], labels:[0, 1, ...]
-def get_feature_matrix(train_docs, tfidf_matrix, phrase_list, true_keys, first_occurrence):
+def get_feature_matrix(tfidf_matrix, phrase_list, true_keys, first_occurrence):
     X = np.empty((0, len(features)))
     y = np.empty(0)
     doc_tfidf_vecs = tfidf_matrix.toarray().tolist() # tfidf matrix

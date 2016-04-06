@@ -33,10 +33,10 @@ def main():
         graph_method = GraphMethod(data_dir + '/' + dataset_name + '/')
         accuracy, recall = graph_method.get_accuracy_from_text_rank()
     elif method_name == 'svm':
-        X, y = construct_feature_vectors(train_docs, train_keys) # Return matrix and vector
-        svm = train_svm(X, y)
-        accuracy = test_svm(svm, X, y)
-
+        X_train, y_train = extract_features(train_docs, train_keys)
+        X_test, y_test = extract_features(test_docs, test_keys)
+        svm = train_svm(X_train, y_train)
+        accuracy = test_svm(svm, X_test, y_test)
     print accuracy
 
 if __name__ == '__main__':
