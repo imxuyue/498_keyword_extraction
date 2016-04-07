@@ -44,6 +44,15 @@ def get_tfidf_matrix(docs):
     first_occurrence_all = []
     vectorizer = TfidfVectorizer(decode_error='ignore', preprocessor=lemmatize, ngram_range=(1, 3), tokenizer=tokenize)
     analyze = vectorizer.build_analyzer()
+    single_word_vectorizer = TfidfVectorizer(decode_error='ignore', preprocessor=lemmatize, ngram_range=(1, 1), tokenizer=tokenize)
+    single_word_analyzer = single_word_vectorizer.build_analyzer()
+
+    bigram_vectorizer = TfidfVectorizer(decode_error='ignore', preprocessor=lemmatize, ngram_range=(2, 2), tokenizer=tokenize)
+    bigram_analyzer = bigram_vectorizer.build_analyzer()
+
+    trigram_vectorizer = TfidfVectorizer(decode_error='ignore', preprocessor=lemmatize, ngram_range=(3, 3), tokenizer=tokenize)
+    trigram_analyzer = trigram_vectorizer.build_analyzer()
+
     #preprocessor = vectorizer.build_preprocessor()
     #tokenizer = vectorizer.build_tokenizer()
     # construct our own vocab applying some heuristics
@@ -51,6 +60,28 @@ def get_tfidf_matrix(docs):
     print "learning vocabulary"
     for doc in docs:
         first_occurrence = {}
+        single_tokens = single_word_analyzer(doc)
+        bigrams = bigram_analyzer(doc)
+        trigrams = trigram_analyzer(doc)
+        all_ngrams = analyze(doc)
+        doc_length = len(single_tokens)
+        # add first occurrence for single tokens
+        for i, single_token in enumerate(single_tokens):
+            if single_token not in stopwords and single_token not in first_occurrence:
+                first_occurrence[single_token] = i / doc_length
+                vocab.add(single_token)
+        # add first occcurrence for bigrams
+        for i, bigram in enumerate(bigrams):
+            if valid_ngram(bigram) and bigram not in first_occurrence:
+                assert(bigram.split()[0] in first_occurrence)
+                first_occurrence[bigram] = i / doc_length
+                vocab.add(bigram)
+        # add first occurrence for trigrams
+        for i, trigram in enumerate(trigrams):
+            if valid_ngram(trigram) and trigram not in first_occurrence:
+                assert(trigram.split()[0] in first_occurrence)
+                first_occurrence[trigram] = i / doc_length
+                vocab.add(trigram)
         tokenized_doc = analyze(doc)
         total = len(tokenized_doc)
         for i, ngram in enumerate(tokenized_doc):
