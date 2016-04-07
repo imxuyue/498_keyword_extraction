@@ -72,13 +72,13 @@ def get_tfidf_matrix(docs):
 
 # Input: parameters to determine features
 # Ouput: feature vector for a single keyphrase of size len(features)
-def get_feature_vector(tfidf, first_occurence, doc_id, phrase):
-    feature_vec = np.array()
-    for f in features:
+def get_feature_vector(tfidf, first_occurrence, doc_id, phrase):
+    feature_vec = np.zeros((1, len(features)))
+    for i, f in enumerate(features):
         if f == 'tfidf':
-            feature_vec = np.append(feature_vec, tfidf)
+            feature_vec[i] = tfidf
         elif f == 'first_occurence':
-            feature_vec = np.append(feature_vec, first_occurence[doc_id][phrase])
+            feature_vec[i] = first_occurrence[doc_id][phrase]
     return feature_vec
 
 # input: tfidf_matrix, list of all phrases in vocab, set of all true keywords for each doc
@@ -92,9 +92,9 @@ def get_feature_matrix(tfidf_matrix, phrase_list, true_keys, first_occurrence):
         # traverse the doc vector
         for i, tfidf in enumerate(tfidf_vec):
             if tfidf != 0: # Why is this case here?
-                feature_vec = get_feature_vector(tfidf, first_occurence, doc_id, phrase_list[i])
+                feature_vec = get_feature_vector(tfidf, first_occurrence, doc_id, phrase_list[i])
                 X = np.append(X, feature_vec, axis=0)
-                label = lambda: 1 if phrase in true_keys[doc_id] else 0
+                label = lambda: 1 if phrase_list[i] in true_keys[doc_id] else 0
                 y = np.append(y, label())
     return X, y
 
