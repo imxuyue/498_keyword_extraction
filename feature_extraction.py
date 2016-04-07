@@ -28,6 +28,14 @@ def extract_features(docs, keys):
     X, y = get_feature_matrix(tfidf_matrix, phrase_list, keys, first_occurrence_all)
     return X, y
 
+# Takes as input a list of doc tokens (nested list)
+# For instance, with two docs: [[token_1, token_2], [token_3, token_4, token_5]]
+def extract_features_test(docs, keys):
+    tfidf_matrix, phrase_list, first_occurrence_all = get_tfidf_matrix(docs)
+    features_doc, labels_doc, phrase_idx_doc, phrase_list = get_candidates_for_docs(tfidf_matrix, phrase_list, keys, first_occurrence_all)
+    return features_doc, labels_doc, phrase_idx_doc, phrase_list
+
+
 # remove ngrams that start and end with stopwords
 def valid_ngram(ngram):
     grams = ngram.split()
@@ -134,6 +142,35 @@ def get_feature_matrix(tfidf_matrix, phrase_list, true_keys, first_occurrence):
                 label = lambda: 1 if phrase_list[i] in true_keys[doc_id] else 0
                 y = np.append(y, label())
     return X, y
+
+def get_candidates_for_docs(tfidf_matrix, phrase_list, true_keys, first_occurrence):
+    doc_tfidf_vecs = tfidf_matrix.toarray().tolist() # tfidf matrix
+
+    # lower true keywords
+    true_keys = [[key.lower() for key in key_list] for key_list in true_keys]
+
+    features_doc = []
+    labels_doc = []
+    phrase_idx_doc = []
+
+    for doc_id, tfidf_vec in enumerate(doc_tfidf_vecs):
+        X = np.empty((0, len(features)))
+        y = np.empty(0)
+        phrase_idx = []
+        # traverse the doc vector
+        print "extracting features from doc {}".format(doc_id)
+        for i, tfidf in enumerate(tfidf_vec):
+            if tfidf != 0: # Why is this case here?
+                feature_vec = get_feature_vector(tfidf, first_occurrence, doc_id, phrase_list[i])
+                X = np.append(X, feature_vec, axis=0)
+                label = lambda: 1 if phrase_list[i] in true_keys[doc_id] else 0
+                y = np.append(y, label())
+                phrase_idx.append(i)
+        features_doc.append(X)
+        labels_doc.append(y)
+        phrase_idx_doc.append(phrase_idx)
+    return features_doc, labels_doc, phrase_idx, phrase_list
+
 
 def get_vec_differences(X_vec, y_vec):
     X = np.empty((0, np.size(X_vec, axis=1)))

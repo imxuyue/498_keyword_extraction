@@ -5,7 +5,8 @@ from svm import train_svm, test_svm
 from graph_method import GraphMethod
 from import_datasets import get_dataset
 from preprocess import tokenize, lemmatize, stem, remove_stopwords
-from feature_extraction import extract_features, get_vec_differences
+from feature_extraction import extract_features, extract_features_test, get_vec_differences
+from evaluation import evaluate_on_each_doc
 
 valid_methods = set(['graph_closeness', 'text_rank', 'svm', 'svm_ranking'])
 valid_datasets = set(['nlm', 'js'])
@@ -40,6 +41,9 @@ def main():
         svm = train_svm(X_train, y_train)
         print "SVM trained, SVM now testing..."
         accuracy = test_svm(svm, X_test, y_test)
+
+        features_doc, labels_doc, phrase_idx_doc, phrase_list = extract_features_test(test_docs, test_keys)
+        avg_precision, avg_recall = evaluate_on_each_doc(svm, features_doc, labels_doc, phrase_idx_doc, phrase_list, test_keys)
     elif method_name == 'svm_ranking':
         X_train_vec, y_train_vec = extract_features(train_docs, train_keys)
         X_train, y_train = get_vec_differences(X_train_vec, y_train_vec)
@@ -50,7 +54,7 @@ def main():
         # so it finds the diff. of test vectors, classifies those
         # differences, and ranks using those classifications
         accuracy = test_svm(svm, X_test, y_test)
-    print accuracy
+    print "accuracy: {} precision: {} recall: {}".format(accuracy, avg_precision, avg_recall)
 
 if __name__ == '__main__':
     main()
