@@ -19,7 +19,7 @@ def tokenize(doc):
     res = re.sub(r"\"", "", res)
 
     # get rid of parentheses
-    res = re.sub(r'[\[\]{}()|]', "", res)
+    res = re.sub(r'[\[\]{}()|*%$#@&+-,.]+', "", res)
 
     l = res.split()
 
