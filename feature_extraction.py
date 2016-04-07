@@ -122,7 +122,7 @@ def get_feature_matrix(tfidf_matrix, phrase_list, true_keys, first_occurrence):
     doc_tfidf_vecs = tfidf_matrix.toarray().tolist() # tfidf matrix
 
     # lower true keywords
-    true_keys = [key.lower() for key in true_keys]
+    true_keys = [[k.lower() for k in keys] for keys in true_keys]
 
     for doc_id, tfidf_vec in enumerate(doc_tfidf_vecs):
         # traverse the doc vector

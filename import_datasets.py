@@ -55,7 +55,7 @@ def get_dataset(data_dir, dataset_name):
     if dataset_name == 'nlm':
         docs = import_data_nlm(data_dir)
         keys = docs.keys()
-        random_test_indices = random.sample(range(len(docs)), len(docs)/10) # Use 10% as test
+        random_test_indices = random.sample(range(len(docs)), len(docs)/10 + 1) # Use 10% as test
         train, test = {}, {}
         for i, k in enumerate(keys):
             if i in random_test_indices:
