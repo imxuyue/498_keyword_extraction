@@ -60,7 +60,7 @@ def get_tfidf_matrix(docs):
     print "learning vocabulary"
     for doc in docs:
         first_occurrence = {}
-<<<<<<< HEAD
+
         single_tokens = single_word_analyzer(doc)
         bigrams = bigram_analyzer(doc)
         trigrams = trigram_analyzer(doc)
@@ -83,16 +83,8 @@ def get_tfidf_matrix(docs):
                 assert(trigram.split()[0] in first_occurrence)
                 first_occurrence[trigram] = i / doc_length
                 vocab.add(trigram)
-=======
-        tokenized_doc = analyze(doc)
-        total = len(tokenized_doc)
-        for i, ngram in enumerate(tokenized_doc):
-            if ngram not in first_occurrence:
-                first_occurrence[ngram] = float(i) / total
-            if valid_ngram(ngram):
-                vocab.add(ngram)
->>>>>>> e66708418589ebb013eddb2451885c5acad7ca3f
         first_occurrence_all.append(first_occurrence)
+
     print "size of vocabulary: ", len(vocab)
     print "transforming tfidf matrix"
     vectorizer.vocabulary = list(vocab)
