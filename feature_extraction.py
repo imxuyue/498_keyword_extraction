@@ -110,7 +110,7 @@ def get_feature_vector(tfidf, first_occurrence, doc_id, phrase):
     for i, f in enumerate(features):
         if f == 'tfidf':
             feature_vec[i] = tfidf
-        elif f == 'first_occurence':
+        elif f == 'first_occurrence':
             feature_vec[i] = first_occurrence[doc_id][phrase]
     return feature_vec
 
@@ -122,10 +122,11 @@ def get_feature_matrix(tfidf_matrix, phrase_list, true_keys, first_occurrence):
     doc_tfidf_vecs = tfidf_matrix.toarray().tolist() # tfidf matrix
 
     # lower true keywords
-    true_keys = [key.lower() for key in true_keys]
+    true_keys = [[key.lower() for key in key_list] for key_list in true_keys]
 
     for doc_id, tfidf_vec in enumerate(doc_tfidf_vecs):
         # traverse the doc vector
+        print "extracting features from doc {}".format(doc_id)
         for i, tfidf in enumerate(tfidf_vec):
             if tfidf != 0: # Why is this case here?
                 feature_vec = get_feature_vector(tfidf, first_occurrence, doc_id, phrase_list[i])
