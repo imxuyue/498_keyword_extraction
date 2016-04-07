@@ -35,7 +35,10 @@ def main():
     elif method_name == 'svm':
         X_train, y_train = extract_features(train_docs, train_keys)
         X_test, y_test = extract_features(test_docs, test_keys)
+        print y_train
+        print "Feature matrices calculated, SVM now training..."
         svm = train_svm(X_train, y_train)
+        print "SVM trained, SVM now testing..."
         accuracy = test_svm(svm, X_test, y_test)
     elif method_name == 'svm_ranking':
         X_train_vec, y_train_vec = extract_features(train_docs, train_keys)
