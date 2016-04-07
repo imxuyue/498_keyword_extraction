@@ -5,15 +5,15 @@ from svm import train_svm, test_svm
 from graph_method import GraphMethod
 from import_datasets import get_dataset
 from preprocess import tokenize, lemmatize, stem, remove_stopwords
-from feature_extraction import get_grams_indices, extract_features, get_vec_differences
+from feature_extraction import extract_features, get_vec_differences
 
-valid_methods = set(['graph_closeness', 'svm'])
+valid_methods = set(['graph_closeness', 'text_rank', 'svm', 'svm_ranking'])
 valid_datasets = set(['nlm', 'js'])
 
-def tokenize(docs):
-    for i in range(len(docs)):
-        docs[i] = lemmatize(tokenize(stem(remove_stopwords(docs[i]))))
-    return docs
+# def tokenize(docs):
+#     for i in range(len(docs)):
+#         docs[i] = lemmatize(tokenize(stem(remove_stopwords(docs[i]))))
+#     return docs
 
 def main():
     method_name, data_dir, dataset_name = sys.argv[1:] # Assign last three args to method, data_dir, dataset
@@ -24,7 +24,7 @@ def main():
     train, test = get_dataset(data_dir, dataset_name)
     train_keys, train_docs = zip(*train.values())
     test_keys, test_docs = zip(*test.values())
-    train_docs, test_docs = tokenize(train_docs), tokenize(test_docs)
+    # train_docs, test_docs = tokenize(train_docs), tokenize(test_docs)
 
     if method_name == 'graph_closeness':
         graph_method = GraphMethod(data_dir + '/' + dataset_name + '/')
