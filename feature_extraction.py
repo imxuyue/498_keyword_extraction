@@ -6,7 +6,8 @@ from nltk.corpus import stopwords
 import operator
 
 stopwords = set(stopwords.words('english'))
-features = ['tfidf', 'docs', 'max_length']
+#features = ['tfidf', 'docs', 'max_length']
+features = ['tfidf', 'first_occurrence']
 
 # Returns unigrams, bigrams, trigrams dicts
 # For example, `trigrams[1] = ['house', 'is', 'nice']`
@@ -114,19 +115,23 @@ def get_tfidf_matrix(docs):
 # Input: parameters to determine features
 # Ouput: feature vector for a single keyphrase of size len(features)
 def get_feature_vector(tfidf, first_occurrence, doc_id, phrase):
-    feature_vec = np.zeros((1, len(features)))
+    #feature_vec = np.zeros((1, len(features)))
+    feature_vec = []
     for i, f in enumerate(features):
         if f == 'tfidf':
-            feature_vec[i] = tfidf
+            feature_vec.append(tfidf)
         elif f == 'first_occurrence':
-            feature_vec[i] = first_occurrence[doc_id][phrase]
+            feature_vec.append(first_occurrence[doc_id][phrase])
+    assert(len(feature_vec) == 2)
     return feature_vec
 
 # input: tfidf_matrix, list of all phrases in vocab, set of all true keywords for each doc
 # output: feature matrix (np.array): [[feature vector1], [feature vector2], ...], labels:[0, 1, ...]
 def get_feature_matrix(tfidf_matrix, phrase_list, true_keys, first_occurrence):
-    X = np.empty((0, len(features)))
-    y = np.empty(0)
+    #X = np.empty((0, len(features)))
+    #y = np.empty(0)
+    X = []
+    y = []
     doc_tfidf_vecs = tfidf_matrix.toarray().tolist() # tfidf matrix
 
     # lower true keywords
@@ -138,10 +143,13 @@ def get_feature_matrix(tfidf_matrix, phrase_list, true_keys, first_occurrence):
         for i, tfidf in enumerate(tfidf_vec):
             if tfidf != 0: # Why is this case here?
                 feature_vec = get_feature_vector(tfidf, first_occurrence, doc_id, phrase_list[i])
-                X = np.append(X, feature_vec, axis=0)
+                #X = np.append(X, feature_vec, axis=0)
+                X.append(feature_vec)
                 label = lambda: 1 if phrase_list[i] in true_keys[doc_id] else 0
-                y = np.append(y, label())
-    return X, y
+                y.append(label())
+                #y = np.append(y, label())
+
+    return np.array(X), y
 
 def get_candidates_for_docs(tfidf_matrix, phrase_list, true_keys, first_occurrence):
     doc_tfidf_vecs = tfidf_matrix.toarray().tolist() # tfidf matrix
@@ -154,22 +162,26 @@ def get_candidates_for_docs(tfidf_matrix, phrase_list, true_keys, first_occurren
     phrase_idx_doc = []
 
     for doc_id, tfidf_vec in enumerate(doc_tfidf_vecs):
-        X = np.empty((0, len(features)))
-        y = np.empty(0)
+        #X = np.empty((0, len(features)))
+        #y = np.empty(0)
+        X = []
+        y = []
         phrase_idx = []
         # traverse the doc vector
         print "extracting features from doc {}".format(doc_id)
         for i, tfidf in enumerate(tfidf_vec):
             if tfidf != 0: # Why is this case here?
                 feature_vec = get_feature_vector(tfidf, first_occurrence, doc_id, phrase_list[i])
-                X = np.append(X, feature_vec, axis=0)
+                #X = np.append(X, feature_vec, axis=0)
+                X.append(feature_vec)
                 label = lambda: 1 if phrase_list[i] in true_keys[doc_id] else 0
-                y = np.append(y, label())
+                #y = np.append(y, label())
+                y.append(label())
                 phrase_idx.append(i)
-        features_doc.append(X)
+        features_doc.append(np.array(X))
         labels_doc.append(y)
         phrase_idx_doc.append(phrase_idx)
-    return features_doc, labels_doc, phrase_idx, phrase_list
+    return features_doc, labels_doc, phrase_idx_doc, phrase_list
 
 
 def get_vec_differences(X_vec, y_vec):
