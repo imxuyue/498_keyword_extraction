@@ -10,7 +10,7 @@
     5. If it is in title
     6. Max word frequency
     7. Min word frequency
-    8. First occurance (position in the document)
+    8. First occurrence (position in the document)
 * Construct Importance-Comparasion Vector (ICV)
 * Build ICV-label based on trainging data
 * Train the model in SVM

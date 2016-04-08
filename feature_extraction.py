@@ -6,35 +6,44 @@ from nltk.corpus import stopwords
 import operator
 
 stopwords = set(stopwords.words('english'))
+#features = ['tfidf', 'docs', 'max_length']
+features = ['tfidf', 'first_occurrence']
 
 # Returns unigrams, bigrams, trigrams dicts
 # For example, `trigrams[1] = ['house', 'is', 'nice']`
-def get_grams_indices(tokens):
-    unigrams, bigrams, trigrams = [], [], []
-    for i in range(len(tokens)):
-        if i < len(tokens)-2:
-            trigrams[i] = tokens[i:i+2]
-        if i < len(tokens)-1:
-            bigrams[i] = tokens[i:i+1]
-        unigrams[i] = tokens[i]
-    return unigrams, bigrams, trigrams
+# def get_grams_indices(tokens):
+#     unigrams, bigrams, trigrams = [], [], []
+#     for i in range(len(tokens)):
+#         if i < len(tokens)-2:
+#             trigrams[i] = tokens[i:i+2]
+#         if i < len(tokens)-1:
+#             bigrams[i] = tokens[i:i+1]
+#         unigrams[i] = tokens[i]
+#     return unigrams, bigrams, trigrams
+#
 
 # Takes as input a list of doc tokens (nested list)
 # For instance, with two docs: [[token_1, token_2], [token_3, token_4, token_5]]
-def extract_features(doc_tokens):
-    for tokens in doc_tokens:
-        unigrams, bigrams, trigrams = get_grams_indices(tokens)
-        # Need to extract features (length of word, entropy, etc.)
-    return features # Same length as doc_tokens (number of docs)
+def extract_features(docs, keys):
+    tfidf_matrix, phrase_list, first_occurrence_all = get_tfidf_matrix(docs)
+    X, y = get_feature_matrix(tfidf_matrix, phrase_list, keys, first_occurrence_all)
+    return X, y
 
+# Takes as input a list of doc tokens (nested list)
+# For instance, with two docs: [[token_1, token_2], [token_3, token_4, token_5]]
+def extract_features_test(docs, keys):
+    tfidf_matrix, phrase_list, first_occurrence_all = get_tfidf_matrix(docs)
+    features_doc, labels_doc, phrase_idx_doc, phrase_list = get_candidates_for_docs(tfidf_matrix, phrase_list, keys, first_occurrence_all)
+    return features_doc, labels_doc, phrase_idx_doc, phrase_list
+
+
+# remove ngrams that start and end with stopwords
 def valid_ngram(ngram):
     grams = ngram.split()
-    # remove ngram that start and end with stopwords
-    if grams[0] in stopwords and grams[-1] in stopwords:
-        return ""
-    # other heuristics for filtering goes here...
-
-    return grams
+    if grams[0] in stopwords or grams[-1] in stopwords:
+        return False
+    # other heuristics for filtering go here...
+    return True
 
 # input: list of docs as strings: ['doc 1 string', 'doc 2 string']
 # output: tfidf matrix, each row a doc, each col a phrase, each cell a tfidf score
@@ -42,64 +51,172 @@ def valid_ngram(ngram):
 #         record of first occurrence of each valid ngram in each doc
 def get_tfidf_matrix(docs):
     first_occurrence_all = []
-
-    vectorizer = TfidfVectorizer(preprocessor=lemmatize, ngram_range=(1, 3), tokenizer=tokenize)
+    vectorizer = TfidfVectorizer(decode_error='ignore', preprocessor=lemmatize, ngram_range=(1, 3), tokenizer=tokenize)
     analyze = vectorizer.build_analyzer()
+    single_word_vectorizer = TfidfVectorizer(decode_error='ignore', preprocessor=lemmatize, ngram_range=(1, 1), tokenizer=tokenize)
+    single_word_analyzer = single_word_vectorizer.build_analyzer()
+
+    bigram_vectorizer = TfidfVectorizer(decode_error='ignore', preprocessor=lemmatize, ngram_range=(2, 2), tokenizer=tokenize)
+    bigram_analyzer = bigram_vectorizer.build_analyzer()
+
+    trigram_vectorizer = TfidfVectorizer(decode_error='ignore', preprocessor=lemmatize, ngram_range=(3, 3), tokenizer=tokenize)
+    trigram_analyzer = trigram_vectorizer.build_analyzer()
+
+    #preprocessor = vectorizer.build_preprocessor()
+    #tokenizer = vectorizer.build_tokenizer()
     # construct our own vocab applying some heuristics
     vocab = set()
+    print "learning vocabulary"
     for doc in docs:
         first_occurrence = {}
+
+        single_tokens = single_word_analyzer(doc)
+        bigrams = bigram_analyzer(doc)
+        trigrams = trigram_analyzer(doc)
+        all_ngrams = analyze(doc)
+        doc_length = len(single_tokens)
+        # add first occurrence for single tokens
+        for i, single_token in enumerate(single_tokens):
+            if single_token not in stopwords and single_token not in first_occurrence:
+                first_occurrence[single_token] = i / doc_length
+                vocab.add(single_token)
+        # add first occcurrence for bigrams
+        for i, bigram in enumerate(bigrams):
+            if valid_ngram(bigram) and bigram not in first_occurrence:
+                assert(bigram.split()[0] in first_occurrence)
+                first_occurrence[bigram] = i / doc_length
+                vocab.add(bigram)
+        # add first occurrence for trigrams
+        for i, trigram in enumerate(trigrams):
+            if valid_ngram(trigram) and trigram not in first_occurrence:
+                assert(trigram.split()[0] in first_occurrence)
+                first_occurrence[trigram] = i / doc_length
+                vocab.add(trigram)
         tokenized_doc = analyze(doc)
         total = len(tokenized_doc)
         for i, ngram in enumerate(tokenized_doc):
-            if ngram not in first_occurence:
-                first_occurrence[ngram] = i / total
+            if ngram not in first_occurrence:
+                first_occurrence[ngram] = float(i) / total
             if valid_ngram(ngram):
                 vocab.add(ngram)
         first_occurrence_all.append(first_occurrence)
 
-    vocab = list(vocab)
-
-    vectorizer.vocabulary=vocab
+    print "size of vocabulary: ", len(vocab)
+    print "transforming tfidf matrix"
+    vectorizer.vocabulary = list(vocab)
     X = vectorizer.fit_transform(docs)
-
     # get list of phrases in the order of the feature vector
-    vocab_list = [phrase for phrase, idx in sorted(vectorizer.vocabulary_.items(), key=operator.itermgetter(1))]
+    vocab_list = [phrase for phrase, idx in sorted(vectorizer.vocabulary_.items(), key=operator.itemgetter(1))]
     assert(len(vocab_list) == X.shape[1])
-
     return X, vocab_list, first_occurrence_all
+    #return preprocessor, tokenizer, analyze
 
-def get_first_occurrence(phrase, docid, tokenized_docs):
-    score = 0 # should be normalized to be in (0, 1)
 
-    return score
+# Input: parameters to determine features
+# Ouput: feature vector for a single keyphrase of size len(features)
+def get_feature_vector(tfidf, first_occurrence, doc_id, phrase):
+    #feature_vec = np.zeros((1, len(features)))
+    feature_vec = []
+    for i, f in enumerate(features):
+        if f == 'tfidf':
+            feature_vec.append(tfidf)
+        elif f == 'first_occurrence':
+            feature_vec.append(first_occurrence[doc_id][phrase])
+    assert(len(feature_vec) == 2)
+    return feature_vec
 
 # input: tfidf_matrix, list of all phrases in vocab, set of all true keywords for each doc
-# output: feature matrix: [[feature vector1], [feature vector2], ...], labels:[0, 1, ...]
-def get_feature_vectors(tfidf_matrix, phrase_list, true_keys, first_occurrence):
-    num_features = 2 # might add more features
-    #features = np.empty([0, num_features], dtype='float32')
-    features = []
-    labels = []
+# output: feature matrix (np.array): [[feature vector1], [feature vector2], ...], labels:[0, 1, ...]
+def get_feature_matrix(tfidf_matrix, phrase_list, true_keys, first_occurrence):
+    #X = np.empty((0, len(features)))
+    #y = np.empty(0)
+    X = []
+    y = []
+    doc_tfidf_vecs = tfidf_matrix.toarray().tolist() # tfidf matrix
 
-    # tfidf matrix
-    doc_vecs = tfidf_matrix.toarray().tolist()
+    # lower true keywords
+    true_keys = [[key.lower() for key in key_list] for key_list in true_keys]
 
-    for docid, vec in enumerate(doc_vecs):
+    for doc_id, tfidf_vec in enumerate(doc_tfidf_vecs):
         # traverse the doc vector
-        for i, tfidf in enumerate(vec):
-            if tfidf != 0:
-                feature = []
-                feature.append(tfidf)
-                feature.append(first_occurrence[docid][phrase_list[i]])
-                # add more features...
+        print "extracting features from doc {}".format(doc_id)
+        for i, tfidf in enumerate(tfidf_vec):
+            if tfidf != 0: # Why is this case here?
+                feature_vec = get_feature_vector(tfidf, first_occurrence, doc_id, phrase_list[i])
+                #X = np.append(X, feature_vec, axis=0)
+                X.append(feature_vec)
+                label = lambda: 1 if phrase_list[i] in true_keys[doc_id] else 0
+                y.append(label())
+                #y = np.append(y, label())
 
-                features.append(feature)
+    return np.array(X), y
 
-                # append label
-                if phrase in true_keys[docid]:
-                    labels.append(1)
-                else:
-                    labels.append(0)
+def get_candidates_for_docs(tfidf_matrix, phrase_list, true_keys, first_occurrence):
+    doc_tfidf_vecs = tfidf_matrix.toarray().tolist() # tfidf matrix
 
-    return np.array(features), labels
+    # lower true keywords
+    true_keys = [[key.lower() for key in key_list] for key_list in true_keys]
+
+    features_doc = []
+    labels_doc = []
+    phrase_idx_doc = []
+
+    for doc_id, tfidf_vec in enumerate(doc_tfidf_vecs):
+        #X = np.empty((0, len(features)))
+        #y = np.empty(0)
+        X = []
+        y = []
+        phrase_idx = []
+        # traverse the doc vector
+        print "extracting features from doc {}".format(doc_id)
+        for i, tfidf in enumerate(tfidf_vec):
+            if tfidf != 0: # Why is this case here?
+                feature_vec = get_feature_vector(tfidf, first_occurrence, doc_id, phrase_list[i])
+                #X = np.append(X, feature_vec, axis=0)
+                X.append(feature_vec)
+                label = lambda: 1 if phrase_list[i] in true_keys[doc_id] else 0
+                #y = np.append(y, label())
+                y.append(label())
+                phrase_idx.append(i)
+        features_doc.append(np.array(X))
+        labels_doc.append(y)
+        phrase_idx_doc.append(phrase_idx)
+    return features_doc, labels_doc, phrase_idx_doc, phrase_list
+
+
+def get_vec_differences(X_vec, y_vec):
+    X = np.empty((0, np.size(X_vec, axis=1)))
+    y = np.empty(0)
+    for i in range(len(X_vec)):
+        for j in range(i, len(X_vec)):
+            if y_vec[i] == y_vec[j]:
+                continue
+            elif y_vec[i] > y_vec[j]:
+                X = np.append(X, X_vec[i] - X_vec[j], axis=0)
+                y = np.append(y, 1)
+            elif y_vec[i] < y_vec[j]:
+                X = np.append(X, X_vec[i] - X_vec[j], axis=0)
+                y = np.append(y, 0)
+    return X, y
+# def construct_feature_vectors(train_docs):
+#     for i in range(len(train_docs)):
+#         # Dict of {index of gram : list of words in gram}
+#         train_grams = get_grams(train_docs[i])
+#         for g in train_grams:
+#             if g in train_keys: # train_keys needs to be normalized I think
+#                 is_keyword = True
+#             else:
+#                 is_keyword = False
+#             train_data.append(extract_features(g, train_grams, is_keyword))
+#     for i in range(len(test_docs)):
+#         # Dict of {index of gram : list of words in gram}
+#         test_grams = get_grams(test_docs[i])
+#         for g in test_grams:
+#             if g in test_keys: # test_keys needs to be normalized I think
+#                 is_keyword = True
+#             else:
+#                 is_keyword = False
+#             test_data.append(extract_features(g, test_grams, is_keyword))
+#     # train_vec should probably be the first element of test_data, and the label
+#     # can be the second element of test_data. both are output by extract_features
+#     # above in the loop
