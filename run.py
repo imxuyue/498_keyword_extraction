@@ -2,13 +2,14 @@
 # For example, `run.py nlm graph_closeness`
 import sys
 from svm import train_svm, test_svm
+import naive_bayes as NB
 from graph_method import GraphMethod
 from import_datasets import get_dataset
 from preprocess import tokenize, lemmatize, stem, remove_stopwords
 from feature_extraction import extract_features, extract_features_test, get_vec_differences
 from evaluation import evaluate_on_each_doc
 
-valid_methods = set(['graph_closeness', 'text_rank', 'svm', 'svm_ranking'])
+valid_methods = set(['NB', 'graph_closeness', 'text_rank', 'svm', 'svm_ranking'])
 valid_datasets = set(['nlm', 'js'])
 
 # def tokenize(docs):
@@ -33,17 +34,28 @@ def main():
     elif method_name == 'text_rank':
         graph_method = GraphMethod(data_dir + '/' + dataset_name + '/')
         accuracy, recall = graph_method.get_accuracy_from_text_rank()
+    elif method_name == 'NB':
+        X_train, y_train = extract_features(train_docs, train_keys)
+        X_test, y_test = extract_features(test_docs, test_keys)
+        #print y_train
+        print "Feature matrices calculated, NB now training..."
+        clf = NB.train(X_train, y_train)
+        print "NB trained, NB now testing..."
+        accuracy = NB.score(clf, X_test, y_test)
+
+        features_doc, labels_doc, phrase_idx_doc, phrase_list = extract_features_test(test_docs, test_keys)
+        avg_precision, avg_recall = evaluate_on_each_doc('NB', clf, features_doc, labels_doc, phrase_idx_doc, phrase_list, test_keys, 10)
     elif method_name == 'svm':
         X_train, y_train = extract_features(train_docs, train_keys)
         X_test, y_test = extract_features(test_docs, test_keys)
-        print y_train
+        #print y_train
         print "Feature matrices calculated, SVM now training..."
         svm = train_svm(X_train, y_train)
         print "SVM trained, SVM now testing..."
         accuracy = test_svm(svm, X_test, y_test)
 
         features_doc, labels_doc, phrase_idx_doc, phrase_list = extract_features_test(test_docs, test_keys)
-        avg_precision, avg_recall = evaluate_on_each_doc(svm, features_doc, labels_doc, phrase_idx_doc, phrase_list, test_keys)
+        avg_precision, avg_recall = evaluate_on_each_doc('svm', svm, features_doc, labels_doc, phrase_idx_doc, phrase_list, test_keys)
     elif method_name == 'svm_ranking':
         X_train_vec, y_train_vec = extract_features(train_docs, train_keys)
         X_train, y_train = get_vec_differences(X_train_vec, y_train_vec)
@@ -57,4 +69,7 @@ def main():
     print "accuracy: {} precision: {} recall: {}".format(accuracy, avg_precision, avg_recall)
 
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) == 4:
+        main()
+    else:
+        print "usage: python run.py <method_name> <data_dir> <dataset_name>"
