@@ -18,13 +18,14 @@ Work flow:
     Calcualte the accuracy and recall using the given keywords and the extracted keywords
 
 To extract keywords, class Closeness or class TextRank can be used 
-Class Solution is implemented to speed up the process to get accuracy from a lot of files by using multiprocessing programming
+Class GraphMethod is implemented to speed up the calculation using multiprocessing programming
 """
 
 import re
 import os
 import sys
-import threading
+import pandas as pd
+import numpy as np  
 from multiprocessing import Process, Queue, cpu_count
 from collections import defaultdict, deque
 import nltk
@@ -36,13 +37,14 @@ from nltk.corpus import stopwords
 class Keyword(object):
     def __init__(self, data_dir):
         self.data_dir = data_dir
-        self.stopwords = self.stopwords('english')
+        self.stopwords = stopwords.words('english')
         self.stemmer = PorterStemmer()
         self.lemmatizer = WordNetLemmatizer()
-       
+    
+    #split file conetent into each sentences for extracting co-occurrence 
     def get_sentence_list(self, filename):
         with open(self.data_dir + filename, 'r') as f:
-            self.sentence_list = re.sub(r'[^a-z.?!-]', ' ', f.read())
+            self.sentence_list = re.sub(r'[^a-z.?!-]+', ' ', f.read())
             self.sentence_list = filter(lambda x: False if len(x) <= 1 else True, re.split(r'[.!?]', self.sentence_list))
             for index, sentence in enumerate(self.sentence_list[:]):
                 self.sentence_list[index] = sentence.split()
@@ -58,7 +60,17 @@ class Keyword(object):
     def lemmatize(self):
         for index, sentence in enumerate(self.sentence_list[:]):
             self.sentence_list[index] = [self.lemmatizer.lemmatize(word) for word in sentence]
+    
+    #construct 2-gram, 3-gram for keyphrases extraction
+    def construct_ngram(self):
+        bigram, trigram = [], []
+        for index, sentence in enumerate(self.sentence_list[:]):
+            bigram = [' '.join(sentence[i:i+2]) for i in xrange(len(sentence) - 2)]
+            trigram = [' '.join(sentence[i:i+2]) for i in xrange(len(sentence) - 3)]
+            self.sentence_list[index].extend(bigram + trigram)
+            self.sentence_list[index] = set(self.sentence_list[index])
 
+    #get all items from each sentences
     def get_items(self):
         self.items = []
         for sentence in self.sentence_list:
@@ -71,6 +83,7 @@ class Keyword(object):
         self.remove_stopwords()
         self.stem_words()
         self.lemmatize()
+        self.construct_ngram()
         self.get_items()
 
     def fit(self, filename, ans_file):
@@ -81,7 +94,8 @@ class Keyword(object):
         self.kw = self.get_keywords(filename)
         return self.kw
 
-    def get_ans(self, ans_file):  #get the given keywords from the file
+    #get the given keywords from the file
+    def get_ans(self, ans_file):  
         self.ans = []
         with open(self.data_dir + ans_file, 'r') as f:
             self.ans = f.read().split()
@@ -92,6 +106,7 @@ class Keyword(object):
         for word in self.kw:
             if word in self.ans:
                 hit += 1
+        # print hit/len(self.kw), hit/len(self.ans)
         return hit/len(self.kw), hit/len(self.ans)
 
 
@@ -101,113 +116,141 @@ class Graph(object):
         self.items = items
 
     def build_co_occurrence(self):
+        '''
+        build co_occurrence relationship based on whether or not if two
+        terms appear in the same sentence
+        if word1 and word2 appear in the same sentence, add word1 to word2's
+        neighbor list and word2 to word1's neighbor list
+        ''' 
         self.co_occurrence = dict()
-        self.neighbors = defaultdict(list)
+        self.neighbors = defaultdict(set)
         for sentence in self.sentence_list:
-            for w1 in sentence[:-1]:
-                for w2 in sentence[1:]:
+            for w1 in sentence:
+                for w2 in sentence:
                     if w1 != w2:
                         self.co_occurrence[(w1, w2)] = self.co_occurrence.get((w1, w2), 0) + 1
-                        self.neighbors[w1].append(w2)
-                        self.neighbors[w2].append(w1)
-
+                        self.co_occurrence[(w2, w1)] = self.co_occurrence.get((w2, w1), 0) + 1
+                        self.neighbors[w1].add(w2)
+                        self.neighbors[w2].add(w1)
+    
     def build_undirected_weighted_edges(self):
+        '''
+        use the co_occurrence frequence as the edge weight
+        if no co_occurrence, assign the edge a very small weigth (0.001 here)
+        '''
         self.edges = dict()
         for w1 in self.items:
             for w2 in self.items:
                 if w1 != w2:
-                    if (w1, w2) in self.co_occurrence or (w2, w1) in self.co_occurrence:
-                        self.edges[(w1, w2)] = self.co_occurrence.get((w1, w2), 0) + self.co_occurrence.get((w2, w1), 0)
-                    else:
-                        self.edges[(w1, w2)] = 0.001  #build a edge with small weight if two words do not co-occurrence
+                        self.edges[(w1, w2)] = self.co_occurrence.get((w1, w2), 0.001)
 
 class Closeness(Keyword, Graph):
-    def get_shortest_path(self, root):   #using the Dijkstra's algorithm to get the shortest path from root node to all the other nodes
+    def __init__(self, data_dir, rank):
+        Keyword.__init__(self, data_dir)
+        self.rank = rank
+
+    def get_shortest_path(self):
+        '''
+        use Floyd-Warshall algorithm for calculating all pairs shortest path
+        this step is the bottleneck for the closeness ranking method, which seems no way to solve
+        '''
         self.dist = dict()
-        queue = dict()
-        for item in self.items:
-            self.dist[item] = 100000
-            if item == root:
-                self.dist[root] = 0
-            queue[item] = self.dist[item]
-        while queue:
-            item = min(queue.items(), key = lambda item: item[1])[0]
-            del queue[item]
-            for key in self.neighbors[item]:
-                temp = self.dist[item] + 1.0/self.edges[(item, key)]
-                if temp < self.dist[key]:
-                    self.dist[key] = temp
-                    queue[key] = temp
+        for w1 in self.items:
+            for w2 in self.items:
+                if w1 == w2:
+                    self.dist[(w1, w2)] = 0
+                else:
+                    self.dist[(w1, w2)] = 1.0 / self.edges[(w1, w2)]
+        for k in self.items:
+            for i in self.items:
+                for j in self.items:
+                    if self.dist[(i, j)] > self.dist[(i, k)] + self.dist[(k, j)]:
+                        self.dist[(i, j)] = self.dist[(i, k)] + self.dist[(k, j)]
 
     def get_keywords(self, filename):
-        self.kw = []
         self.pre_processing(filename)
         self.build_co_occurrence()
         self.build_undirected_weighted_edges()
-        n = len(self.items)
+        self.get_shortest_path()
         score = dict()
-        rank = len(self.items)/3   #get the top 1/3 as the potential keywords
+        rank = len(self.items) / self.rank  # NO. of extracted keywords, variable
+        n = len(self.items)
+        #closeness centrality of node i: (niterms - ) / sum(shortest path from node i to all other nodes)
         for item in self.items:
-            self.get_shortest_path(item)
-            score[item] = (n - 1) * 1.0 / sum(self.dist.values())
+            score[item] = (n - 1) * 1.0 / sum(self.dist[(item, w2)] for w2 in self.items)
+
         temp = sorted(score.items(), key = lambda items: items[1], reverse = True) 
         self.kw = [item[0] for item in temp][:rank]
 
 
 class TextRank(Keyword, Graph):
-    def __init__(self, data_dir, d = 0.85, c = 1.0):
+    def __init__(self, data_dir, rank, d = 0.85, c = 1.0):
         Keyword.__init__(self, data_dir)
         self.d = d
         self.c = c
+        self.alpha = 0.1
+        self.rank = rank
+   
+    def build_prob_matrix(self):
+        '''
+        build the transition probability matrix
+        prob(i, j) denotes the probality jumping from item i to item j
+        construct process:
+        prob(i, j) = self.co_occurrence.get((i, j), 1 / niterms)
+        prob(i, j) = prob(i, j) / sum(prob(i, :)) ---nomalize each entry use row sum
+        prob(i, j) = (1 - alpha) * prob(i, j) + alpha / nitems (alpha is a hyperparameter)
+        the last step is add a random jum probality in case of dead end 
+        alpha is usually 0.1
+        '''
+        nitems = len(self.items)
+        self.prob = pd.DataFrame(np.zeros((nitems, nitems)), columns=self.items, index=self.items)
+        for w1 in self.items:
+            for w2 in self.neighbors[w1]:
+                self.prob.loc[w1, w2] = self.co_occurrence[(w1, w2)]
+        self.prob = self.prob.div(self.prob.sum(axis=1), axis=0)
+        self.prob = self.prob.fillna(1.0/nitems)
+        self.prob = self.prob * (1 - self.alpha) + self.alpha / nitems
 
-    def is_convergence(self, old_score, new_score, error = 0.001):
-        temp = 0
-        for key in old_score:
-            temp += abs(old_score[key] - new_score[key])
-        return temp <= error
+    def get_principle_left_eigenvector(self):
+        '''
+        calculat the principle left eigen vector as the corresponding steady probability that each
+        term would be visited
+        with higher probability, the term is more likely to be visited, which means this term is more important
+        '''
+        _, self.lvector = np.linalg.eig(self.prob.values.T)
+        self.lvector = self.lvector[:, 0].T
+        self.lvector /= sum(self.lvector)
 
     def get_keywords(self, filename):
-        self.kw = []
         self.pre_processing(filename)
         self.build_co_occurrence()
-        self.build_undirected_weighted_edges()
-        old_score = dict()
-        new_score = dict()
-        rank = len(self.items) / 3 #use the top 1/3 words as the potential keywords
-        for item in self.items:
-            old_score[item] = self.c
-
-        while True:
-            for w1 in self.items:
-                in_sum = 0
-                for w2 in self.neighbors[w1]:
-                    out_sum = sum(self.edges[(w2, w3)] for w3 in self.neighbors[w2] if w3 != w2)
-                    if w2 != w1:
-                        in_sum += (self.edges[(w1, w2)] * old_score[w2] / out_sum)
-                new_score[w1] = 1 - self.d + self.d * in_sum
-
-            if not self.is_convergence(old_score, new_score):
-                old_score, new_score = new_score, dict()
-            else:
-                break
-        temp = sorted(new_score.items(), key = lambda items: items[1], reverse = True)
-        self.kw = [item[0] for item in temp][:rank]
+        self.build_prob_matrix()
+        self.get_principle_left_eigenvector()
+        score = dict()
+        for item, value in zip(self.items, self.lvector):
+            score[item] = value  #score the term using the probability values
+        rank = len(self.items) / self.rank  #again rank is a hyper parameter
+        self.kw = [items[0] for items in sorted(score.items(), key = lambda item: item[1], reverse=True)[:rank]]
 
 
 class GraphMethod(object):
-    def __init__(self, data_dir):
+    def __init__(self, data_dir, rank):
         self.data_dir = data_dir
-        self.extractors = {'textrank': TextRank(data_dir), 'closeness' : Closeness(data_dir)}
+        self.extractors = {'textrank': TextRank(data_dir, rank), 'closeness' : Closeness(data_dir, rank)}
         self.accuracy = {'textrank': 0.0, 'closeness' : 0.0}
         self.recall = {'textrank': 0.0, 'closeness' : 0.0}
-        self.q_accuracy = {'textrank': Queue(), 'closeness': Queue()}
-        self.q_recall = {'textrank': Queue(), 'closeness': Queue()}
+        #Queue is thread safe
+        self.q_accuracy = {'textrank': Queue(), 'closeness': Queue()}  #store accuracy for each file in multiprocess calculation
+        self.q_recall = {'textrank': Queue(), 'closeness': Queue()} #store recall for each file in multiprocess calculation
         self.filelist = filter(lambda filename: filename.endswith('txt'), os.listdir(self.data_dir))
-        self.q_filelist = Queue()
+        self.q_filelist = Queue()  #word list in multiprocess programming
         self.nfiles = len(self.filelist)
         self.ncores = cpu_count()
 
     def go_rank(self, key):
+        '''
+        worker function in multiprocess programming
+        '''
         extractor = self.extractors[key]
         while True:
             if self.q_filelist.empty():
@@ -215,10 +258,11 @@ class GraphMethod(object):
             filename = self.q_filelist.get()
             ans_file = filename[:-3]  + 'key'
             extractor.fit(filename, ans_file)
-            self.q_accuracy[key].put(extractor.get_accuracy_recall()[0])
-            self.q_recall[key].put(extractor.get_accuracy_recall()[1])
+            accuracy, recall = extractor.get_accuracy_recall()
+            self.q_accuracy[key].put(accuracy)
+            self.q_recall[key].put(recall)
 
-    def get_accuracy_recall(self, key):
+    def get_accuracy_recall2(self, key):
         for filename in self.filelist:
             self.q_filelist.put(filename)
         self.accuracy[key] = 0.0
@@ -237,22 +281,30 @@ class GraphMethod(object):
         return self.accuracy[key], self.recall[key] 
 
     def get_results_from_closeness_rank(self):
-        return self.get_accuracy_recall('closeness')
+        return self.get_accuracy_recall2('closeness')
 
     def get_results_from_text_rank(self):
-        return self.get_accuracy_recall('textrank')
+        return self.get_accuracy_recall2('textrank')
 
     def get_all_results(self):
         return [self.get_results_from_closeness_rank(), self.get_results_from_text_rank()]
 
 
 if __name__ == '__main__':
-    data_dir = sys.argv[1]
-    solution = GraphMethod(data_dir)
-    print solution.get_results_from_text_rank()
-    print solution.get_results_from_closeness_rank()
-
-
+    # data_dir = sys.argv[1]
+    dir2 = ['data/train_js/', 'data/train2_js/']
+    d = dir2[1]
+    with open('result2.txt', 'w') as f:
+        for rank in [18, 36, 72]:
+            f.write('rank = ' + str(rank) + '\n')
+            print rank
+            solution = GraphMethod(d, rank)
+            accuracy1, recall1 = solution.get_results_from_text_rank()
+            accuracy2, recall2 = solution.get_results_from_closeness_rank()
+            f.write(d + ': ' + 'textrank: (' + str(accuracy1) + ', ' + str(recall1) + ')   ' \
+                    'closeness: (' + str(accuracy2) + ', ' + str(recall2) + ')\n')
+            print d + ': ' + 'textrank: (' + str(accuracy1) + ', ' + str(recall1) + ')   ' \
+                    'closeness: (' + str(accuracy2) + ', ' + str(recall2) + ')\n'
 
 
 
