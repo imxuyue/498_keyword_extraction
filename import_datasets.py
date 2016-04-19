@@ -4,8 +4,8 @@ from os import listdir
 from os.path import isfile, join, basename
 
 def read_files(filenames):
-    keys = [open(x).read().splitlines() for x in filenames]
-    docs = [open(x[:-4] + '.txt').read().replace('\n', ' ').replace('\r', ' ') for x in filenames]
+    keys = [open(x).read().decode('utf-8', 'ignore').splitlines() for x in filenames]
+    docs = [open(x[:-4] + '.txt').read().decode('utf-8', 'ignore').replace('\r', '\n') for x in filenames]
     return keys, docs
 
 # Run using `docs = import_data_nlm(path)` where path = {path to the NLM_500 documents folder}

@@ -10,6 +10,7 @@ import naive_bayes as NB
 def get_precision(true_keys, pred_keys):
     true_keys = [key.lower() for key in true_keys]
     correct_keys = set(true_keys) & set(pred_keys)
+    print "pred correct keys:"
     for key in list(correct_keys):
         print key
     correct = len(correct_keys)
@@ -19,8 +20,8 @@ def get_precision(true_keys, pred_keys):
     return correct / len(pred_keys)
 
 def get_recall(true_keys, pred_keys):
-    true_keys = set([key.lower() for key in true_keys])
-    correct = len(true_keys.intersection(set(pred_keys)))
+    true_keys = [key.lower() for key in true_keys]
+    correct = len(set(true_keys) & set(pred_keys))
     if len(pred_keys) == 0:
         return 0
     return correct / len(true_keys)
@@ -40,6 +41,10 @@ def evaluate_on_each_doc(clf_name, clf, features_doc, labels_doc, phrase_idx_doc
             # collect all phrases that has pred label 1
             for idx in pred_idx:
                 pred_keys.append(phrase_list[phrase_indices[idx]])
+            print "pred_keys:"
+            print pred_keys
+            print "true keys:"
+            print true_keys
             precisions.append(get_precision(true_keys, pred_keys))
             recalls.append(get_recall(true_keys, pred_keys))
 
@@ -54,7 +59,7 @@ def evaluate_on_each_doc(clf_name, clf, features_doc, labels_doc, phrase_idx_doc
             precisions.append(get_precision(true_keys, pred_keys))
             recalls.append(get_recall(true_keys, pred_keys))
 
-        precisions[i] = get_precision(true_keys_doc[i], pred_keys))
-        recalls[i] = get_recall(true_keys_doc[i], pred_keys))
 
-    return np.average(precisions), np.average(recalls)
+    precision_avg = sum(precisions) / len(precisions)
+    recall_avg = sum(recalls) / len(recalls)
+    return precision_avg, recall_avg
