@@ -9,14 +9,12 @@ stopwords = set(stopwords.words('english'))
 
 def tokenize(doc):
     res = doc
-    '''
-    punct_regex = re.compile('[%s]' % re.escape(string.punctuation))
-    l = []
-    for token in res.split():
-        token = re.sub(punct_regex, '', token)
-        if token:
-            l.append(token)
-    '''
+    # punct_regex = re.compile('[%s]' % re.escape(string.punctuation))
+    # l = []
+    # for token in res.split():
+    #     token = re.sub(punct_regex, '', token)
+    #     if token:
+    #         l.append(token)
     l = res.split()
 
     return l
@@ -24,26 +22,19 @@ def tokenize(doc):
 # input: a list of strings representing a doc
 # output: a list of lemmatized strings
 def lemmatize(doc):
-
     lemmatizer = WordNetLemmatizer()
     return ' '.join([lemmatizer.lemmatize(token) for token in doc.split()])
 
 def preprocess(res):
-
     res = res.decode('utf-8', 'ignore')
-
     # matches all punctuation except for '-' and single quote
     punct_regex = re.compile('[%s]' % re.escape('!"#$%&\()*+,./:;<=>?@[\\]^_`{|}~'))
-
     # lemmatize
     res = lemmatize(res)
-
     # get rid of all punctuation
     res = re.sub(punct_regex, '', res)
-
     # remove any number
     res = re.sub(r"(?u)\b\d+\b", "", res)
-
     # remove some punctuations followed by space
     #res = re.sub(r"(\w+)([,.?!:;])(\s|$)", r"\1\3", res)
 
@@ -53,9 +44,7 @@ def preprocess(res):
     # get rid of parentheses
     #res = re.sub(r'[\[\]{}()|*%$#@&+-,.]+', "", res)
     res = res.lower()
-
     res = ' '.join(res.split())
-
     return res
 
 
@@ -69,11 +58,7 @@ def stem(doc):
 # input:  a list l of string
 # output: a list of string where the stopwords are removed
 def remove_stopwords(doc):
-    '''
-    for token in l:
-        if token not in stopwords:
-            result.append(token)
-    '''
+    # for token in l:
+    #     if token not in stopwords:
+    #         result.append(token)
     return ' '.join([token for token in doc.split() if token not in stopwords])
-
-
