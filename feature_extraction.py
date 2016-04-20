@@ -6,6 +6,7 @@ from nltk.corpus import stopwords
 import operator
 import cPickle as pickle
 from math import log10
+from collections import Counter
 
 stopwords = set(stopwords.words('english'))
 features = ['tfidf', 'first_occurrence', 'entropy', 'length', 'num_tokens']
@@ -80,19 +81,18 @@ def extract_candidate_chunks(text, grammar=r'KT: {(<JJ>* <NN.*>+ <IN>)? <JJ>* <N
                   for key, group in itertools.groupby(all_chunks, lambda (word,pos,chunk): chunk != 'O') if key]
 
     return [cand for cand in candidates \
-            if cand not in stopwords and not all(char in punct for char in cand)]
+            if cand not in stopwords \
+            and not all(char in punct for char in cand)]
 
 # input doc string, chunk number of N
 # output a list of evenly splited chunks
-def split_doc_into_chunks(doc, N=10):
-    return np.array_split(doc, N).tolist()
+def get_chunk_counts(doc, N=10):
+    return [Counter(x) for x in np.array_split(doc, N)]
 
 # input a phrase, and doc in chunks, return entropy
 def get_entropy(phrase, chunks):
     p = 0
-    tf_c = []
-    for chunk in chunks:
-        tf_c.append(chunk.count(phrase))
+    tf_c = [c[phrase] for c in chunks]
     tf = sum(tf_c)
     if tf == 0:
         return 0
@@ -107,14 +107,14 @@ def get_entropy(phrase, chunks):
 def get_entropy_doc(doc, phrases, N=10):
     entropy = []
     # split doc into N chunks
-    chunks = split_doc_into_chunks(doc, N)
+    chunks = get_chunk_counts(doc, N)
     for phrase in phrases:
         p = 0
-        tf = doc.count(phrase)
+        tf = sum([c[phrase] for c in chunks])
         if tf == 0:
             continue
         for chunk in chunks:
-            tf_c = chunk.count(phrase)
+            tf_c = chunk[phrase]
             if tf_c != 0:
                 p += (-1) * (tf_c / tf) * log10(tf_c / tf)
         entropy.append(p)
@@ -124,14 +124,14 @@ def get_phrase_entropy(doc, phrases, N=10):
     entropy = {}
     doc = preprocess(doc)
     # split doc into N chunks
-    chunks = split_doc_into_chunks(doc, N)
+    chunks = get_chunk_counts(doc, N)
     for phrase in phrases:
         p = 0
-        tf = doc.count(phrase)
+        tf = sum([c[phrase] for c in chunks])
         if tf == 0:
             continue
         for chunk in chunks:
-            tf_c = chunk.count(phrase)
+            tf_c = chunk[phrase]
             if tf_c != 0:
                 p += (-1) * (tf_c / tf) * log10(tf_c / tf)
         entropy[phrase] = p
@@ -181,21 +181,16 @@ def learn_vocabulary(docs, only_noun_phrases=True):
         entropy = {}
 
         phrases = analyzer(doc) # all phrases from doc
-        doc = preprocess(doc) # do the same preprocessing to doc for locating phrase
-        doc_length = len(doc)
+        chunks = get_chunk_counts(phrases)
         for i, phrase in enumerate(phrases):
             if valid_ngram(phrase, noun_phrases) and phrase not in first_occurrence:
-                pos = doc.find(phrase)
-                if pos == -1:
+                try:
+                    pos = phrases.index(phrase)
+                except ValueError:
                     print "--phrase: '{}' not found".format(phrase)
                     continue
-                first_occurrence[phrase] = pos / doc_length
+                first_occurrence[phrase] = pos / len(phrases)
                 # calculate entropy
-                ################################
-                # THIS IS NOT A list
-                print type(doc)
-                chunks = split_doc_into_chunks(doc)
-                ################################
                 entropy[phrase] = get_entropy(phrase, chunks)
                 vocab.add(phrase)
         first_occurrence_all.append(first_occurrence)

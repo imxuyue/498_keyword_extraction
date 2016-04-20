@@ -1,0 +1,6 @@
+RBF kernel, C=1.0:
+--accuracy: 0.74621785174
+--precision: 0.0160197359576
+--recall: 0.150298540469
+
+

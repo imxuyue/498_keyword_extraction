@@ -56,11 +56,14 @@ def evaluate_on_each_doc(clf_name, clf, features_doc, labels_doc, phrase_idx_doc
 
         if clf_name == 'svm':
             pred_labels = clf.predict(features)
+            confidence_scores = clf.decision_function(features)
             pred_keys = []
             ###
             print '--pred keys:', str(sum(pred_labels))
             ###
             # collect all phrases that has pred label 1
+            predictions = zip(pred_labels, phrase_indices, confidence_scores)
+            predictions.sort(key=lambda x: x[2], reverse=True)
             for label, idx in zip(pred_labels, phrase_indices):
                 if label == 1:
                     pred_keys.append(phrase_list[idx])
