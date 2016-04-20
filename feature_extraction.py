@@ -13,10 +13,9 @@ features = ['tfidf', 'first_occurrence', 'entropy', 'length', 'num_tokens']
 # Takes as input a list of doc tokens (nested list)
 # For instance, with two docs: [[token_1, token_2], [token_3, token_4, token_5]]
 def extract_features(docs, keys):
-    tfidf_matrix, phrase_list, first_occurrence_all, entropy_all = get_tfidf_matrix(docs)
     #print "calculating entropy for phrases"
     #entropy_all = [get_phrase_entropy(doc, phrase_list) for doc in docs]
-
+    tfidf_matrix, phrase_list, first_occurrence_all, entropy_all = get_tfidf_matrix(docs)
     X, y = get_feature_matrix(tfidf_matrix, phrase_list, keys, first_occurrence_all, entropy_all)
     return X, y
 
@@ -86,12 +85,7 @@ def extract_candidate_chunks(text, grammar=r'KT: {(<JJ>* <NN.*>+ <IN>)? <JJ>* <N
 # input doc string, chunk number of N
 # output a list of evenly splited chunks
 def split_doc_into_chunks(doc, N=10):
-    chunks = []
-    chunk_size = len(doc) // N
-    for i in range(N - 1):
-        chunks.append(doc[i * chunk_size:(i + 1) * chunk_size])
-    chunks.append(doc[(N - 1) * chunk_size:])
-    return chunks
+    return np.array_split(doc, N).tolist()
 
 # input a phrase, and doc in chunks, return entropy
 def get_entropy(phrase, chunks):
@@ -196,8 +190,12 @@ def learn_vocabulary(docs, only_noun_phrases=True):
                     print "--phrase: '{}' not found".format(phrase)
                     continue
                 first_occurrence[phrase] = pos / doc_length
-                # calcualte entropy
+                # calculate entropy
+                ################################
+                # THIS IS NOT A list
+                print type(doc)
                 chunks = split_doc_into_chunks(doc)
+                ################################
                 entropy[phrase] = get_entropy(phrase, chunks)
                 vocab.add(phrase)
         first_occurrence_all.append(first_occurrence)
@@ -210,7 +208,6 @@ def learn_vocabulary(docs, only_noun_phrases=True):
 #         list of vocabulary in the same order as features
 #         record of first occurrence of each valid ngram in each doc
 def get_tfidf_matrix(docs):
-
     vocab, first_occurrence_all, entropy_all = learn_vocabulary(docs)
     vectorizer = TfidfVectorizer(decode_error='ignore', preprocessor=preprocess, ngram_range=(1, 3), tokenizer=tokenize)
 

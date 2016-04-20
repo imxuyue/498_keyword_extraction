@@ -75,15 +75,20 @@ def main():
     if (method_name not in valid_methods) or (dataset_name not in valid_datasets):
         print '--Invalid arguments, exiting!'
         sys.exit()
-
+    # Graph methods
     if method_name == 'graph_closeness':
         performance = graph_closeness(data_dir + '/' + dataset_name + '/')
     elif method_name == 'text_rank':
         performance = text_rank(data_dir + '/' + dataset_name + '/')
+    # Other methods
     else:
         train, test = get_dataset(data_dir, dataset_name)
         train_keys, train_docs = zip(*train.values())
         test_keys, test_docs = zip(*test.values())
+        ##
+        print '--Number of train docs:', len(train_docs)
+        print '--Number of test docs:', len(test_docs)
+        ##
         if method_name == 'NB':
             performance = naive_bayes(train_docs, train_keys, test_docs, test_keys)
         elif method_name == 'svm':
