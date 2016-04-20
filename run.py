@@ -9,7 +9,7 @@ from preprocess import tokenize, lemmatize, stem, remove_stopwords
 from feature_extraction import extract_features, extract_features_test, get_vec_differences
 from evaluation import evaluate_on_each_doc
 
-valid_methods = set(['NB', 'graph_closeness', 'text_rank', 'svm', 'svm_ranking'])
+valid_methods = set(['NB', 'closeness', 'textrank', 'svm', 'svm_ranking'])
 valid_datasets = set(['nlm', 'js'])
 
 def graph_closeness(data_path):
