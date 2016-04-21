@@ -5,10 +5,11 @@ precision, recall, etc
 '''
 from __future__ import division
 from feature_extraction import extract_features_test
+from preprocess import preprocess
 import naive_bayes as NB
 
 def get_precision(true_keys, pred_keys):
-    true_keys = [key.lower() for key in true_keys]
+    true_keys = [preprocess(key.lower()) for key in true_keys]
     correct_keys = set(true_keys) & set(pred_keys)
     num_correct = len(correct_keys)
     ###
@@ -22,11 +23,29 @@ def get_precision(true_keys, pred_keys):
     return num_correct / len(pred_keys)
 
 def get_recall(true_keys, pred_keys):
-    true_keys = [key.lower() for key in true_keys]
+    true_keys = [preprocess(key.lower()) for key in true_keys]
     num_correct = len(set(true_keys) & set(pred_keys))
     if len(pred_keys) == 0:
         return 0
     return num_correct / len(true_keys)
+
+def evaluate_one_doc(clf_name, clf, phrases, features, true_keys, N=10):
+    if clf_name == 'NB':
+        pred_idx = NB.test(clf, N, features)
+        pred_keys = []
+        # get top N pred keys
+        for idx in pred_idx:
+            pred_keys.append(phrases[idx])
+        ###
+        print "--pred_keys:"
+        print pred_keys
+        print "--true keys:"
+        print true_keys
+        ###
+        precision = get_precision(true_keys, pred_keys)
+        recall = get_recall(true_keys, pred_keys)
+        return precision, recall
+
 
 # N is the #keywords requested for each doc
 def evaluate_on_each_doc(clf_name, clf, features_doc, labels_doc, phrase_idx_doc, phrase_list, true_keys_doc, N=10):
@@ -40,7 +59,7 @@ def evaluate_on_each_doc(clf_name, clf, features_doc, labels_doc, phrase_idx_doc
         ###
         docid += 1
         if clf_name == 'NB':
-            pred_idx = NB.test(clf, N, features, labels)
+            pred_idx = NB.test(clf, N, features)
             pred_keys = []
             # collect all phrases that have pred label 1
             for idx in pred_idx:

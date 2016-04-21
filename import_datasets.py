@@ -49,9 +49,33 @@ def import_data_js(datasets_folder):
 
     return train, test
 
+def import_data_semeval(datasets_folder):
+    train_path = join(datasets_folder, 'maui-semeval2010-train/')
+    test_path = join(datasets_folder, 'maui-semeval2010-test/')
+    train_filenames = [join(train_path, f) for f in listdir(train_path) if isfile(join(train_path, f))]
+    test_filenames = [join(test_path, f) for f in listdir(test_path) if isfile(join(test_path, f))]
+    train_names = [x for x in train_filenames if x[-4:] == '.key']
+    test_names = [x for x in test_filenames if x[-4:] == '.key']
+    train_keys, train_docs = read_files(train_names)
+    test_keys, test_docs = read_files(test_names)
+
+    train = {}
+    for i in range(len(train_names)):
+        train_id = basename(train_names[i])[:-4]
+        train[train_id] = (train_keys[i], train_docs[i])
+    test = {}
+    for i in range(len(test_names)):
+        test_id = basename(test_names[i])[:-4]
+        test[test_id] = (test_keys[i], test_docs[i])
+
+    return train, test
+
+
 def get_dataset(data_dir, dataset_name):
     if dataset_name == 'js':
         train, test = import_data_js(data_dir)
+    if dataset_name == 'semeval':
+        train, test = import_data_semeval(data_dir)
     if dataset_name == 'nlm':
         docs = import_data_nlm(data_dir)
         keys = docs.keys()

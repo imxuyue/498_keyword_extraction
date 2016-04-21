@@ -26,7 +26,7 @@ def lemmatize(doc):
     return ' '.join([lemmatizer.lemmatize(token) for token in doc.split()])
 
 def preprocess(res):
-    res = res.decode('utf-8', 'ignore')
+    #res = res.decode('utf-8', 'ignore')
     # matches all punctuation except for '-' and single quote
     punct_regex = re.compile('[%s]' % re.escape('!"#$%&\()*+,./:;<=>?@[\\]^_`{|}~'))
     # lemmatize

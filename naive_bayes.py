@@ -16,7 +16,7 @@ def train(X_train, y_train):
 def score(clf, X_test, y_test):
     return clf.score(X_test, y_test)
 
-def test(clf, N, X_test, y_test):
+def test(clf, N, X_test):
     prob = clf.predict_log_proba(X_test)
 
     key_prob = prob[:, 1].tolist()

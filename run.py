@@ -1,16 +1,17 @@
 # Run as follows: `run.py method_name dataset_dir dataset_name`
 # For example, `run.py nlm graph_closeness`
+from __future__ import division
 import sys
 from svm import train_svm, test_svm
 import naive_bayes as NB
 from graph_method import GraphMethod
 from import_datasets import get_dataset
 from preprocess import tokenize, lemmatize, stem, remove_stopwords
-from feature_extraction import extract_features, extract_features_test, get_vec_differences
-from evaluation import evaluate_on_each_doc
+from feature_extraction import extract_features, extract_features_test, get_vec_differences, extract_candidates_doc
+from evaluation import evaluate_on_each_doc, evaluate_one_doc
 
 valid_methods = set(['NB', 'graph_closeness', 'text_rank', 'svm', 'svm_ranking'])
-valid_datasets = set(['nlm', 'js'])
+valid_datasets = set(['semeval', 'nlm', 'js'])
 
 def graph_closeness(data_path):
     graph_method = GraphMethod(data_path)
@@ -25,22 +26,33 @@ def text_rank(data_path):
             'recall': recall}
 
 def naive_bayes(train_docs, train_keys, test_docs, test_keys):
-    X_train, y_train = extract_features(train_docs, train_keys)
-    X_test, y_test = extract_features(test_docs, test_keys)
+    X_train, y_train, phrase_list_train, idf_vec= extract_features(train_docs, train_keys)
+    #X_test, y_test, fl_test, junk = extract_features(test_docs, test_keys)
     #print y_train
     print "--Feature matrices calculated, NB now training..."
     clf = NB.train(X_train, y_train)
     print "--NB trained, NB now testing..."
-    accuracy = NB.score(clf, X_test, y_test)
-    features_doc, labels_doc, phrase_idx_doc, phrase_list = extract_features_test(test_docs, test_keys)
-    avg_precision, avg_recall = evaluate_on_each_doc('NB', clf, features_doc, labels_doc, phrase_idx_doc, phrase_list, test_keys, 10)
+    #accuracy = NB.score(clf, X_test, y_test)
+    accuracy = 0
+
+    precisions = []
+    recalls = []
+    for doc, true_keys in zip(test_docs, test_keys):
+        candidates, features = extract_candidates_doc(doc, phrase_list_train, idf_vec)
+        precision, recall = evaluate_one_doc('NB', clf, candidates, features, true_keys)
+        precisions.append(precision)
+        recalls.append(recall)
+    avg_precision = sum(precisions) / len(precisions)
+    avg_recall = sum(recalls) / len(recalls)
+    #features_doc, labels_doc, phrase_idx_doc, phrase_list = extract_features_test(test_docs, test_keys)
+    #avg_precision, avg_recall = evaluate_on_each_doc('NB', clf, features_doc, labels_doc, phrase_idx_doc, phrase_list, test_keys, 10)
     return {'accuracy': accuracy,
             'recall': avg_recall,
             'precision': avg_precision}
 
 def svm(train_docs, train_keys, test_docs, test_keys):
-    X_train, y_train = extract_features(train_docs, train_keys)
-    X_test, y_test = extract_features(test_docs, test_keys)
+    X_train, y_train, fl_train, junk = extract_features(train_docs, train_keys)
+    X_test, y_test, fl_test, junk = extract_features(test_docs, test_keys)
     #print y_train
     print "--Feature matrices calculated, SVM now training..."
     svm = train_svm(X_train, y_train)

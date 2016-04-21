@@ -16,18 +16,20 @@ features = ['tfidf', 'first_occurrence', 'entropy', 'length', 'num_tokens']
 def extract_features(docs, keys):
     #print "calculating entropy for phrases"
     #entropy_all = [get_phrase_entropy(doc, phrase_list) for doc in docs]
-    tfidf_matrix, phrase_list, first_occurrence_all, entropy_all = get_tfidf_matrix(docs)
+    tfidf_matrix, phrase_list, first_occurrence_all, entropy_all, idf_vec = get_tfidf_matrix(docs)
     X, y = get_feature_matrix(tfidf_matrix, phrase_list, keys, first_occurrence_all, entropy_all)
-    return X, y
+    return X, y, phrase_list, idf_vec
 
 # extract candidates from a single doc
-# phrase_list and df_vec are from training set
-def extract_candidates_doc(doc, phrase_list, df_vec, training_size = 450):
+# phrase_list and idf_vec are from training set
+def extract_candidates_doc(doc, phrase_list, idf_vec, training_size = 450):
 
     #vocab = set(phrase_list)
-    df_dic = {}
+    idf_dic = {}
+    print "phrase list len", len(phrase_list)
+    print "len idf_vec", len(idf_vec)
     for i, phrase in enumerate(phrase_list):
-        df_dic[phrase] = df_vec[i]
+        idf_dic[phrase] = idf_vec[i]
     noun_phrases = set()
     print "--extracting NP"
     noun_phrases = set([lemmatize(phrase) for phrase in extract_candidate_chunks(doc)])
@@ -37,29 +39,32 @@ def extract_candidates_doc(doc, phrase_list, df_vec, training_size = 450):
     phrases = list(set([phrase for phrase in analyzer(doc) if valid_ngram(phrase, noun_phrases)]))
     doc = preprocess(doc)
 
-    tfidf = []
-    first_occurrence = []
-    entropy = []
-    length = []
+    print "candidate phrases", phrases
+    #tfidf = []
+    #first_occurrence = []
+    #entropy = []
+    #length = []
     doc_len = len(doc)
 
     entropy = get_entropy_doc(doc, phrases)
-    # calculate tfidf
+    # get feature vectors
+    features = []
     for i, phrase in enumerate(phrases):
-        first_occurrence.append(doc.find(phrase) / doc_len)
+        first_occurrence = doc.find(phrase) / doc_len
         tf = doc.count(phrase)
-        if phrase in df_dic:
-            tfidf[i] = tf * log10(training_size / df_dic[phrase])
+        if phrase in idf_dic:
+            tfidf = tf * idf_dic[phrase]
         else:
-            tfidf[i] = tf * log10(training_size)
-        length.append(len(phrase))
-    return phrases, tfidf, first_occurrence, entropy, length
+            tfidf = tf * log10(training_size)
+        feature_vec = get_feature_vector(phrase, tfidf, first_occurrence, entropy[i])
+        features.append(feature_vec)
+    return phrases, features
 
 
 # Takes as input a list of doc tokens (nested list)
 # For instance, with two docs: [[token_1, token_2], [token_3, token_4, token_5]]
 def extract_features_test(docs, keys):
-    tfidf_matrix, phrase_list, first_occurrence_all, entropy_all = get_tfidf_matrix(docs)
+    tfidf_matrix, phrase_list, first_occurrence_all, entropy_all, idf_vec = get_tfidf_matrix(docs)
     #entropy_all = [get_phrase_entropy(doc, phrase_list) for doc in docs]
     features_doc, labels_doc, phrase_idx_doc, phrase_list = get_candidates_for_docs(tfidf_matrix, phrase_list, keys, first_occurrence_all, entropy_all)
     return features_doc, labels_doc, phrase_idx_doc, phrase_list
@@ -84,6 +89,14 @@ def extract_candidate_chunks(text, grammar=r'KT: {(<JJ>* <NN.*>+ <IN>)? <JJ>* <N
             if cand not in stopwords \
             and not all(char in punct for char in cand)]
 
+def get_chunks(doc, N=10):
+    chunks = []
+    chunk_size = len(doc) // N
+    for i in range(N - 1):
+        chunks.append(doc[i * chunk_size:(i + 1) * chunk_size])
+    chunks.append(doc[(N - 1) * chunk_size:])
+    return chunks
+
 # input doc string, chunk number of N
 # output a list of evenly splited chunks
 def get_chunk_counts(doc, N=10):
@@ -92,7 +105,9 @@ def get_chunk_counts(doc, N=10):
 # input a phrase, and doc in chunks, return entropy
 def get_entropy(phrase, chunks):
     p = 0
-    tf_c = [c[phrase] for c in chunks]
+    tf_c = []
+    for chunk in chunks:
+        tf_c.append(chunk.count(phrase))
     tf = sum(tf_c)
     if tf == 0:
         return 0
@@ -107,17 +122,9 @@ def get_entropy(phrase, chunks):
 def get_entropy_doc(doc, phrases, N=10):
     entropy = []
     # split doc into N chunks
-    chunks = get_chunk_counts(doc, N)
+    chunks = get_chunks(doc, N)
     for phrase in phrases:
-        p = 0
-        tf = sum([c[phrase] for c in chunks])
-        if tf == 0:
-            continue
-        for chunk in chunks:
-            tf_c = chunk[phrase]
-            if tf_c != 0:
-                p += (-1) * (tf_c / tf) * log10(tf_c / tf)
-        entropy.append(p)
+        entropy.append(get_entropy(phrase, chunks))
     return entropy
 
 def get_phrase_entropy(doc, phrases, N=10):
@@ -155,7 +162,7 @@ def valid_ngram(ngram, noun_phrases):
 def learn_vocabulary(docs, only_noun_phrases=True):
     first_occurrence_all = []
     entropy_all = []
-    docs = [doc.decode('utf8', 'ignore') for doc in docs]
+    #docs = [doc.decode('utf8', 'ignore') for doc in docs]
 
     noun_phrases = set()
     if only_noun_phrases:
@@ -163,13 +170,16 @@ def learn_vocabulary(docs, only_noun_phrases=True):
             print "--extracting NP from doc", i
             #doc = doc.decode('utf8', 'ignore')
             noun_phrases.update([lemmatize(phrase) for phrase in extract_candidate_chunks(doc)])
-    # with open('./nlm500_test_docs_noun_phrases.set', 'w') as f:
-    #     pickle.dump(noun_phrases, f)
-    #
-    # print "loading pre-extracted set of noun_phrases"
-    # noun_phrases = set()
-    # with open('./nlm500_test_docs_noun_phrases.set', 'r') as f:
-    #     noun_phrases = pickle.load(f)
+
+    with open('./semeval_train_docs_noun_phrases.set', 'w') as f:
+        pickle.dump(noun_phrases, f)
+
+    '''
+    print "loading pre-extracted set of noun_phrases"
+    noun_phrases = set()
+    with open('./nlm500_train_docs_noun_phrases.set', 'r') as f:
+        noun_phrases = pickle.load(f)
+    '''
 
     vectorizer = TfidfVectorizer(decode_error='ignore', preprocessor=preprocess, ngram_range=(1, 3), tokenizer=tokenize)
     analyzer = vectorizer.build_analyzer()
@@ -181,15 +191,17 @@ def learn_vocabulary(docs, only_noun_phrases=True):
         entropy = {}
 
         phrases = analyzer(doc) # all phrases from doc
-        chunks = get_chunk_counts(phrases)
+        doc = preprocess(doc)
+        doc_length = len(doc)
+        chunks = get_chunks(doc)
         for i, phrase in enumerate(phrases):
             if valid_ngram(phrase, noun_phrases) and phrase not in first_occurrence:
                 try:
-                    pos = phrases.index(phrase)
+                    pos = doc.find(phrase)
                 except ValueError:
                     print "--phrase: '{}' not found".format(phrase)
                     continue
-                first_occurrence[phrase] = pos / len(phrases)
+                first_occurrence[phrase] = pos / doc_length
                 # calculate entropy
                 entropy[phrase] = get_entropy(phrase, chunks)
                 vocab.add(phrase)
@@ -212,7 +224,7 @@ def get_tfidf_matrix(docs):
     # get list of phrases in the order of the feature vector
     vocab_list = [phrase for phrase, idx in sorted(vectorizer.vocabulary_.items(), key=operator.itemgetter(1))]
     assert(len(vocab_list) == X.shape[1])
-    return X, vocab_list, first_occurrence_all, entropy_all
+    return X, vocab_list, first_occurrence_all, entropy_all, vectorizer.idf_.tolist()
     #return preprocessor, tokenizer, analyze
 
 # Input: parameters to determine features
@@ -226,6 +238,8 @@ def get_feature_vector(phrase, tfidf, first_occurrence, entropy):
         elif f == 'first_occurrence':
             feature_vec.append(first_occurrence)
         elif f == 'entropy':
+            #if entropy == 0:
+                #print "phrase {} entropy 0".format(phrase)
             feature_vec.append(entropy)
         elif f == 'length':
             feature_vec.append(len(phrase))
@@ -243,7 +257,7 @@ def get_feature_matrix(tfidf_matrix, phrase_list, true_keys, first_occurrence, p
     doc_tfidf_vecs = tfidf_matrix.toarray().tolist() # tfidf matrix
 
     # lower true keywords
-    true_keys = [[key.lower() for key in key_list] for key_list in true_keys]
+    true_keys = [[preprocess(key) for key in key_list] for key_list in true_keys]
 
     for doc_id, tfidf_vec in enumerate(doc_tfidf_vecs):
         # traverse the doc vector
@@ -253,6 +267,8 @@ def get_feature_matrix(tfidf_matrix, phrase_list, true_keys, first_occurrence, p
                 feature_vec = get_feature_vector(phrase_list[i], tfidf, first_occurrence[doc_id][phrase_list[i]], phrase_entropy[doc_id][phrase_list[i]])
                 #X = np.append(X, feature_vec, axis=0)
                 X.append(feature_vec)
+                #if feature_vec[2] == 0:
+                    #print "phrase {} entropy 0 in doc {}".format(phrase_list[i], doc_id)
                 label = lambda: 1 if phrase_list[i] in true_keys[doc_id] else 0
                 y.append(label())
                 #y = np.append(y, label())
