@@ -86,6 +86,9 @@ class Keyword(object):
         self.construct_ngram()
         self.get_items()
 
+    def get_keywords(self, filename):
+        return
+
     def fit(self, filename, ans_file):
         self.get_keywords(filename)
         self.get_ans(ans_file)
@@ -94,12 +97,24 @@ class Keyword(object):
         self.kw = self.get_keywords(filename)
         return self.kw
 
-    #get the given keywords from the file
+    #get the given keywords from the file, process the keywords similarly to the main documents
     def get_ans(self, ans_file):  
         self.ans = []
         with open(self.data_dir + ans_file, 'r') as f:
             self.ans = f.read().split()
             self.ans = set(filter(lambda a: a in self.items, self.ans))
+
+    # def get_ans(self, ans_file):  
+    #     self.ans = []
+    #     with open(self.data_dir + ans_file, 'r') as f:
+    #         for line in f.readlines():
+    #             line = re.split(r'[^a-z-]+', line.rstrip().lower())
+    #             line = [word for word in line if word not in self.stopwords]
+    #             line = [self.stemmer.stem(word) for word in line]
+    #             line = [self.lemmatizer.lemmatize(word) for word in line]
+    #             line = ' '.join(line)
+    #             self.ans.append(line)
+    #         self.ans = set(filter(lambda a: a in self.items, self.ans))
 
     def get_accuracy_recall(self):
         hit = 0.0
@@ -181,10 +196,11 @@ class Closeness(Keyword, Graph):
 
         temp = sorted(score.items(), key = lambda items: items[1], reverse = True) 
         self.kw = [item[0] for item in temp][:rank]
+        return self.kw
 
 
 class TextRank(Keyword, Graph):
-    def __init__(self, data_dir, rank, d = 0.85, c = 1.0):
+    def __init__(self, data_dir, rank = 36, d = 0.85, c = 1.0):
         Keyword.__init__(self, data_dir)
         self.d = d
         self.c = c
@@ -231,10 +247,11 @@ class TextRank(Keyword, Graph):
             score[item] = value  #score the term using the probability values
         rank = len(self.items) / self.rank  #again rank is a hyper parameter
         self.kw = [items[0] for items in sorted(score.items(), key = lambda item: item[1], reverse=True)[:rank]]
+        return self.kw
 
 
 class GraphMethod(object):
-    def __init__(self, data_dir, rank):
+    def __init__(self, data_dir, rank = 36):
         self.data_dir = data_dir
         self.extractors = {'textrank': TextRank(data_dir, rank), 'closeness' : Closeness(data_dir, rank)}
         self.accuracy = {'textrank': 0.0, 'closeness' : 0.0}
@@ -247,11 +264,11 @@ class GraphMethod(object):
         self.nfiles = len(self.filelist)
         self.ncores = cpu_count()
 
-    def go_rank(self, key):
+    def go_rank(self, method):
         '''
         worker function in multiprocess programming
         '''
-        extractor = self.extractors[key]
+        extractor = self.extractors[method]
         while True:
             if self.q_filelist.empty():
                 break
@@ -259,52 +276,74 @@ class GraphMethod(object):
             ans_file = filename[:-3]  + 'key'
             extractor.fit(filename, ans_file)
             accuracy, recall = extractor.get_accuracy_recall()
-            self.q_accuracy[key].put(accuracy)
-            self.q_recall[key].put(recall)
+            self.q_accuracy[method].put(accuracy)
+            self.q_recall[method].put(recall)
 
-    def get_accuracy_recall2(self, key):
+    #given the filename and method, return the keywords
+    def get_keywords(self, filename, method):
+        return self.extractors[method].get_keywords(filename)
+
+    #return the precision and recall for the files in the given data dir using the given method
+    def get_accuracy_recall2(self, method):
         for filename in self.filelist:
             self.q_filelist.put(filename)
-        self.accuracy[key] = 0.0
+        self.accuracy[method] = 0.0
         processes = []
         for _ in range(self.ncores):  #construct ncores of processes to run simutaneously
-            p = Process(target = self.go_rank, args = (key,))
+            p = Process(target = self.go_rank, args = (method,))
             p.start()
             processes.append(p)
         for process in processes:
             process.join()
-        while not self.q_accuracy[key].empty():
-            self.accuracy[key] += self.q_accuracy[key].get()
-            self.recall[key] += self.q_recall[key].get()
-        self.accuracy[key] /= self.nfiles
-        self.recall[key] /= self.nfiles
-        return self.accuracy[key], self.recall[key] 
+        while not self.q_accuracy[method].empty():
+            self.accuracy[method] += self.q_accuracy[method].get()
+            self.recall[method] += self.q_recall[method].get()
+        self.accuracy[method] /= self.nfiles
+        self.recall[method] /= self.nfiles
+        return self.accuracy[method], self.recall[method] 
 
-    def get_results_from_closeness_rank(self):
-        return self.get_accuracy_recall2('closeness')
+    # def get_results_from_closeness_rank(self):
+    #     return self.get_accuracy_recall2('closeness')
 
-    def get_results_from_text_rank(self):
-        return self.get_accuracy_recall2('textrank')
+    # def get_results_from_text_rank(self):
+    #     return self.get_accuracy_recall2('textrank')
 
-    def get_all_results(self):
-        return [self.get_results_from_closeness_rank(), self.get_results_from_text_rank()]
+    # def get_all_results(self):
+    #     return [self.get_results_from_closeness_rank(), self.get_results_from_text_rank()]
 
 
 if __name__ == '__main__':
-    # data_dir = sys.argv[1]
-    dir2 = ['data/train_js/', 'data/train2_js/']
-    d = dir2[1]
-    with open('result2.txt', 'w') as f:
-        for rank in [18, 36, 72]:
-            f.write('rank = ' + str(rank) + '\n')
-            print rank
-            solution = GraphMethod(d, rank)
-            accuracy1, recall1 = solution.get_results_from_text_rank()
-            accuracy2, recall2 = solution.get_results_from_closeness_rank()
-            f.write(d + ': ' + 'textrank: (' + str(accuracy1) + ', ' + str(recall1) + ')   ' \
-                    'closeness: (' + str(accuracy2) + ', ' + str(recall2) + ')\n')
-            print d + ': ' + 'textrank: (' + str(accuracy1) + ', ' + str(recall1) + ')   ' \
-                    'closeness: (' + str(accuracy2) + ', ' + str(recall2) + ')\n'
+    method = sys.argv[1]
+    path = sys.argv[2]
+    if os.path.isdir(path):
+        graph = GraphMethod(path)
+        accuracy, recall = graph.get_accuracy_recall2(method)
+        print "accuracy: " + str(accuracy)
+        print "recall: " + str(recall)
+    elif os.path.isfile(path):
+
+        graph = GraphMethod('/')
+        keywords = graph.get_keywords(path, method)
+        print keywords
+
+    else:
+        print "please input valid method name and data directory or filename"
+
+
+    # data_dir = sys.argv[2]
+    # dir2 = ['data/train_js/', 'data/train2_js/']
+    # d = dir2[0]
+    # with open('result2.txt', 'w') as f:
+    #     for rank in [1, 3, 6, 9, 18, 36, 72]:
+    #         f.write('rank = ' + str(rank) + '\n')
+    #         print rank
+    #         solution = GraphMethod(d, rank)
+    #         accuracy1, recall1 = solution.get_results_from_text_rank()
+    #         accuracy2, recall2 = solution.get_results_from_closeness_rank()
+    #         f.write(d + ': ' + 'textrank: (' + str(accuracy1) + ', ' + str(recall1) + ')   ' \
+    #                 'closeness: (' + str(accuracy2) + ', ' + str(recall2) + ')\n')
+    #         print d + ': ' + 'textrank: (' + str(accuracy1) + ', ' + str(recall1) + ')   ' \
+    #                 'closeness: (' + str(accuracy2) + ', ' + str(recall2) + ')\n'
 
 
 

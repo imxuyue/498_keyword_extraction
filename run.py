@@ -7,7 +7,7 @@ import naive_bayes as NB
 from graph_method import GraphMethod
 from import_datasets import get_dataset
 from preprocess import tokenize, lemmatize, stem, remove_stopwords
-from feature_extraction import extract_features, extract_features_test, get_vec_differences, extract_candidates_doc
+from feature_extraction import extract_features, extract_features_test, get_vec_differences, get_vec_differences_train
 from evaluation import evaluate_on_each_doc, evaluate_one_doc
 import cPickle as pickle
 
@@ -94,15 +94,47 @@ def svm(train_docs, train_keys, test_docs, test_keys, model_file, N):
 
 def svm_ranking(train_docs, train_keys, test_docs, test_keys):
     X_train_vec, y_train_vec = extract_features(train_docs, train_keys)
-    X_train, y_train = get_vec_differences(X_train_vec, y_train_vec)
+    X_train, y_train = get_vec_differences_train(X_train_vec, y_train_vec)
+
     X_test_vec, y_test_vec = extract_features(test_docs, test_keys)
-    X_test, y_test = get_vec_differences(X_test_vec, y_test_vec)
+    X_test, y_test = get_vec_differences_train(X_test_vec, y_test_vec)
+    print "--Training SVM"
     svm = train_svm(X_train, y_train)
     # The test_svm function needs to be replaced for this method
     # so it finds the diff. of test vectors, classifies those
     # differences, and ranks using those classifications
+    print "--Testing SVM"
     accuracy = test_svm(svm, X_test, y_test)
-    return {'accuracy': accuracy}
+    avg_recall = 0
+    avg_precision = 0
+    return {'accuracy': accuracy,
+            'recall': avg_recall,
+            'precision': avg_precision}
+
+    # # Get train set vectors, X contains features for one phrase
+    # # in each row
+    # # y contains lablel of 1 for keyword and 0 for non-keyword
+    # X_train_vec, y_train_vec = extract_features(train_docs, train_keys)
+    # X_test_vec, y_test_vec = extract_features(test_docs, test_keys)
+    # # Use RankSVM to learn the =model
+    # print "--Trainnig rankning SVM"
+    # rank_svm = RankSVM().fit(X_train_vec, y_train_vec)
+
+    # accuracy = rank_svm.score(X_test_vec, y_test_vec)
+    # predict = rank_svm.predict(X_test_vec)
+    # sorted_idx = [x for (ordx, x) in sorted(zip(predict, range(len(y_test_vec))))]
+    # # sorted_idx_y = [ordx for (ordx, x) in sorted(zip(predict, range(len(y_test_vec))))]
+    # recall_count = 0
+    # positive_all = sum(y_test_vec)
+    # RANGE = 100
+    # for idx in range(RANGE):
+    #     if y_test_vec[sorted_idx[idx]] == 1:
+    #         recall_count =+ 1
+    # avg_recall = recall_count / positive_all
+    # avg_precision = recall_count / RANGE
+    # return {'accuracy': accuracy,
+    #         'recall': avg_recall,
+    #         'precision': avg_precision}
 
 def print_performance(performance):
     print '\n--Performance:'
