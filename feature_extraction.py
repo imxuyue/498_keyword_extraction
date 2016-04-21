@@ -26,8 +26,8 @@ def extract_candidates_doc(doc, phrase_list, idf_vec, training_size = 450):
 
     #vocab = set(phrase_list)
     idf_dic = {}
-    print "phrase list len", len(phrase_list)
-    print "len idf_vec", len(idf_vec)
+    #print "phrase list len", len(phrase_list)
+    #print "len idf_vec", len(idf_vec)
     for i, phrase in enumerate(phrase_list):
         idf_dic[phrase] = idf_vec[i]
     noun_phrases = set()
@@ -39,7 +39,7 @@ def extract_candidates_doc(doc, phrase_list, idf_vec, training_size = 450):
     phrases = list(set([phrase for phrase in analyzer(doc) if valid_ngram(phrase, noun_phrases)]))
     doc = preprocess(doc)
 
-    print "candidate phrases", phrases
+    #print "candidate phrases", phrases
     #tfidf = []
     #first_occurrence = []
     #entropy = []
@@ -164,6 +164,7 @@ def learn_vocabulary(docs, only_noun_phrases=True):
     entropy_all = []
     #docs = [doc.decode('utf8', 'ignore') for doc in docs]
 
+    '''
     noun_phrases = set()
     if only_noun_phrases:
         for i, doc in enumerate(docs):
@@ -173,13 +174,12 @@ def learn_vocabulary(docs, only_noun_phrases=True):
 
     with open('./semeval_train_docs_noun_phrases.set', 'w') as f:
         pickle.dump(noun_phrases, f)
-
     '''
+
     print "loading pre-extracted set of noun_phrases"
     noun_phrases = set()
-    with open('./nlm500_train_docs_noun_phrases.set', 'r') as f:
+    with open('./semeval_train_docs_noun_phrases.set', 'r') as f:
         noun_phrases = pickle.load(f)
-    '''
 
     vectorizer = TfidfVectorizer(decode_error='ignore', preprocessor=preprocess, ngram_range=(1, 3), tokenizer=tokenize)
     analyzer = vectorizer.build_analyzer()

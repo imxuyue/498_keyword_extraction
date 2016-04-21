@@ -9,6 +9,7 @@ from import_datasets import get_dataset
 from preprocess import tokenize, lemmatize, stem, remove_stopwords
 from feature_extraction import extract_features, extract_features_test, get_vec_differences, extract_candidates_doc
 from evaluation import evaluate_on_each_doc, evaluate_one_doc
+import cPickle as pickle
 
 valid_methods = set(['NB', 'graph_closeness', 'text_rank', 'svm', 'svm_ranking'])
 valid_datasets = set(['semeval', 'nlm', 'js'])
@@ -25,12 +26,21 @@ def text_rank(data_path):
     return {'accuracy': accuracy,
             'recall': recall}
 
-def naive_bayes(train_docs, train_keys, test_docs, test_keys):
+def naive_bayes(train_docs, train_keys, test_docs, test_keys,model_file, N):
     X_train, y_train, phrase_list_train, idf_vec= extract_features(train_docs, train_keys)
     #X_test, y_test, fl_test, junk = extract_features(test_docs, test_keys)
     #print y_train
     print "--Feature matrices calculated, NB now training..."
     clf = NB.train(X_train, y_train)
+    print "--Saving model..."
+    with open(model_file, 'w') as f:
+        pickle.dump(clf, f)
+    with open(model_file+'.phrase_list', 'w') as f:
+        pickle.dump(phrase_list_train, f)
+    with open(model_file+'.idf_vec', 'w') as f:
+        pickle.dump(idf_vec, f)
+    with open(model_file+'.training_size', 'w') as f:
+        pickle.dump(len(train_docs), f)
     print "--NB trained, NB now testing..."
     #accuracy = NB.score(clf, X_test, y_test)
     accuracy = 0
@@ -38,8 +48,8 @@ def naive_bayes(train_docs, train_keys, test_docs, test_keys):
     precisions = []
     recalls = []
     for doc, true_keys in zip(test_docs, test_keys):
-        candidates, features = extract_candidates_doc(doc, phrase_list_train, idf_vec)
-        precision, recall = evaluate_one_doc('NB', clf, candidates, features, true_keys)
+        candidates, features = extract_candidates_doc(doc, phrase_list_train, idf_vec, len(train_docs))
+        precision, recall = evaluate_one_doc('NB', clf, candidates, features, true_keys, N)
         precisions.append(precision)
         recalls.append(recall)
     avg_precision = sum(precisions) / len(precisions)
@@ -50,16 +60,34 @@ def naive_bayes(train_docs, train_keys, test_docs, test_keys):
             'recall': avg_recall,
             'precision': avg_precision}
 
-def svm(train_docs, train_keys, test_docs, test_keys):
-    X_train, y_train, fl_train, junk = extract_features(train_docs, train_keys)
-    X_test, y_test, fl_test, junk = extract_features(test_docs, test_keys)
+def svm(train_docs, train_keys, test_docs, test_keys, model_file, N):
+    X_train, y_train, phrase_list_train, idf_vec = extract_features(train_docs, train_keys)
+    #X_test, y_test, fl_test, junk = extract_features(test_docs, test_keys)
     #print y_train
     print "--Feature matrices calculated, SVM now training..."
-    svm = train_svm(X_train, y_train)
+    clf = train_svm(X_train, y_train)
+    print "--Saving model..."
+    with open(model_file, 'w') as f:
+        pickle.dump(model_file, f)
     print "--SVM trained, SVM now testing..."
+    accuracy = 0
+
+    precisions = []
+    recalls = []
+    for doc, true_keys in zip(test_docs, test_keys):
+        candidates, features = extract_candidates_doc(doc, phrase_list_train, idf_vec, len(train_docs))
+        precision, recall = evaluate_one_doc('svm', clf, candidates, features, true_keys, N)
+        precisions.append(precision)
+        recalls.append(recall)
+    avg_precision = sum(precisions) / len(precisions)
+    avg_recall = sum(recalls) / len(recalls)
+
+
+    '''
     accuracy = test_svm(svm, X_test, y_test)
     features_doc, labels_doc, phrase_idx_doc, phrase_list = extract_features_test(test_docs, test_keys)
     avg_precision, avg_recall = evaluate_on_each_doc('svm', svm, features_doc, labels_doc, phrase_idx_doc, phrase_list, test_keys)
+    '''
     return {'accuracy': accuracy,
             'recall': avg_recall,
             'precision': avg_precision}
@@ -78,12 +106,13 @@ def svm_ranking(train_docs, train_keys, test_docs, test_keys):
 
 def print_performance(performance):
     print '\n--Performance:'
-    print '--accuracy:', str(performance['accuracy'])
+    #print '--accuracy:', str(performance['accuracy'])
     print '--precision:', str(performance['precision'])
     print '--recall:', str(performance['recall'])
 
 def main():
-    method_name, data_dir, dataset_name = sys.argv[1:] # Assign last three args to method, data_dir, dataset
+    method_name, data_dir, dataset_name, model_file, N = sys.argv[1:] # Assign last three args to method, data_dir, dataset
+    N = int(N)
     if (method_name not in valid_methods) or (dataset_name not in valid_datasets):
         print '--Invalid arguments, exiting!'
         sys.exit()
@@ -102,16 +131,16 @@ def main():
         print '--Number of test docs:', len(test_docs)
         ##
         if method_name == 'NB':
-            performance = naive_bayes(train_docs, train_keys, test_docs, test_keys)
+            performance = naive_bayes(train_docs, train_keys, test_docs, test_keys, model_file, N)
         elif method_name == 'svm':
-            performance = svm(train_docs, train_keys, test_docs, test_keys)
+            performance = svm(train_docs, train_keys, test_docs, test_keys, model_file, N)
         elif method_name == 'svm_ranking':
             performance = svm_ranking(train_docs, train_keys, test_docs, test_keys)
 
     print_performance(performance)
 
 if __name__ == '__main__':
-    if len(sys.argv) == 4:
+    if len(sys.argv) == 6:
         main()
     else:
-        print "usage: python run.py <method_name> <data_dir> <dataset_name>"
+        print "usage: python run.py <method_name> <data_dir> <dataset_name> <model_file> N (#keywords extracting from doc)"

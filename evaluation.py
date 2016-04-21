@@ -7,7 +7,7 @@ from __future__ import division
 from feature_extraction import extract_features_test
 from preprocess import preprocess
 import naive_bayes as NB
-
+import svm
 def get_precision(true_keys, pred_keys):
     true_keys = [preprocess(key.lower()) for key in true_keys]
     correct_keys = set(true_keys) & set(pred_keys)
@@ -30,21 +30,26 @@ def get_recall(true_keys, pred_keys):
     return num_correct / len(true_keys)
 
 def evaluate_one_doc(clf_name, clf, phrases, features, true_keys, N=10):
+    pred_idx = []
     if clf_name == 'NB':
         pred_idx = NB.test(clf, N, features)
-        pred_keys = []
-        # get top N pred keys
-        for idx in pred_idx:
-            pred_keys.append(phrases[idx])
-        ###
-        print "--pred_keys:"
-        print pred_keys
-        print "--true keys:"
-        print true_keys
-        ###
-        precision = get_precision(true_keys, pred_keys)
-        recall = get_recall(true_keys, pred_keys)
-        return precision, recall
+    if clf_name == 'svm':
+        pred_idx= svm.test(clf, N, features)
+
+    pred_keys = []
+    print "# pred_keys", len(pred_keys)
+    # get top N pred keys
+    for idx in pred_idx:
+        pred_keys.append(phrases[idx])
+    ###
+    print "--pred_keys:"
+    print pred_keys
+    print "--true keys:"
+    print true_keys
+    ###
+    precision = get_precision(true_keys, pred_keys)
+    recall = get_recall(true_keys, pred_keys)
+    return precision, recall
 
 
 # N is the #keywords requested for each doc
@@ -55,7 +60,7 @@ def evaluate_on_each_doc(clf_name, clf, features_doc, labels_doc, phrase_idx_doc
     docid = 0
     for features, labels, phrase_indices, true_keys in zip(features_doc, labels_doc, phrase_idx_doc, true_keys_doc):
         ###
-        print "--docid", docid
+        print "*docid", docid
         ###
         docid += 1
         if clf_name == 'NB':
