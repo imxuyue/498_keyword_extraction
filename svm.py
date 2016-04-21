@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.svm import SVC
 
 def train_svm(X, y):
-    clf = SVC(class_weight='balanced')
+    clf = SVC(class_weight='auto')
     clf.fit(X, y)
     return clf
 
