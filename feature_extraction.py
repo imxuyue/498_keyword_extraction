@@ -307,21 +307,46 @@ def get_candidates_for_docs(tfidf_matrix, phrase_list, true_keys, first_occurren
         phrase_idx_doc.append(phrase_idx)
     return features_doc, labels_doc, phrase_idx_doc, phrase_list
 
+def get_vec_differences_train(X_vec, y_vec):
+    print "calculating vector difference"
+    X = np.empty((0, np.size(X_vec, axis=1)))
+    for i in range(len(X_vec)):
+        if y_vec[i] == 1:
+            for j in range(len(X_vec)):
+                print "difference", i, j
+                if y_vec[i] > y_vec[j]:
+                    X = np.append(X, [X_vec[i] - X_vec[j]], axis=0)
+    y = np.ones(X.shape[0])
+    X = np.append(X, np.multiply(X, -1), axis=0)
+    y = np.append(y, np.zeros(y.shape[0]))
+    return X, y
 
+
+# origin_idx is a matrix, first column is the index for first vector
+# second column is the index for second vector
 def get_vec_differences(X_vec, y_vec):
+    ## old version
     X = np.empty((0, np.size(X_vec, axis=1)))
     y = np.empty(0)
+    origin_idx = np.empty((0,2))
     for i in range(len(X_vec)):
-        for j in range(i, len(X_vec)):
-            if y_vec[i] == y_vec[j]:
-                continue
-            elif y_vec[i] > y_vec[j]:
-                X = np.append(X, X_vec[i] - X_vec[j], axis=0)
-                y = np.append(y, 1)
-            elif y_vec[i] < y_vec[j]:
-                X = np.append(X, X_vec[i] - X_vec[j], axis=0)
-                y = np.append(y, 0)
-    return X, y
+        if y_vec[i] == 1:
+            for j in range(len(X_vec)):
+                print "difference", i, j
+                if y_vec[i] == y_vec[j]:
+                    continue
+                elif y_vec[i] > y_vec[j]:
+                    X = np.append(X, [X_vec[i] - X_vec[j]], axis=0)
+                    y = np.append(y, 1)
+                    origin_idx = np.append(origin_idx, [i,j])
+                elif y_vec[i] < y_vec[j]:
+                    X = np.append(X, [X_vec[i] - X_vec[j]], axis=0)
+                    y = np.append(y, 0)
+                    origin_idx = np.append(origin_idx, [i,j])
+    return X, y, origin_idx
+
+
+
 # def construct_feature_vectors(train_docs):
 #     for i in range(len(train_docs)):
 #         # Dict of {index of gram : list of words in gram}
